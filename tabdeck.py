@@ -3406,6 +3406,27 @@ def host_ok(host, bound_ip, port):
     return host == "%s:%d" % (bound_ip, port)
 
 
+# Chiave che TabDeck-Setup.exe (Inno Setup, AppId fisso) crea in "App installate": dopo un aggiornamento
+# dal telefono la versione mostrata da Windows va riallineata a quella vera.
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{7AEEA677-21CD-402C-AC74-6CC3D2F40359}_is1"
+
+
+def sync_uninstall_version(version, key_path=UNINSTALL_KEY):
+    """Aggiorna DisplayVersion se TabDeck e' stato installato con il setup; True se l'ha cambiata."""
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE) as k:
+            try:
+                if winreg.QueryValueEx(k, "DisplayVersion")[0] == version:
+                    return False
+            except OSError:
+                pass
+            winreg.SetValueEx(k, "DisplayVersion", 0, winreg.REG_SZ, version)
+            return True
+    except OSError:
+        return False
+
+
 def pair_allowed(client_ip, bound_ip):
     """La pagina /pair mostra il token: la si apre solo dal PC stesso (stesso indirizzo o localhost)."""
     return client_ip in (bound_ip, "127.0.0.1")
@@ -4006,6 +4027,7 @@ def main():
     threading.Thread(target=_remap_thread, daemon=True).start()
     DISCORD.start()
     threading.Thread(target=_update_auto_check, daemon=True).start()
+    sync_uninstall_version(VERSION)
     # Segnale per updater.py: questa versione si e' avviata (non dipende dalla rete)
     try:
         with open(os.path.join(DATA_DIR, "update_ok.json"), "w", encoding="utf-8") as f:

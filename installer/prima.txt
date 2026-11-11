@@ -1,0 +1,20 @@
+TabDeck trasforma il telefono in un pannello di comandi per questo PC.
+
+Prima di continuare:
+
+- Il telefono deve essere sulla STESSA rete Wi-Fi di questo PC.
+
+- TabDeck usa Python. Se non e' installato, la configurazione che parte alla fine
+  te lo propone e lo installa (versione ufficiale, solo per il tuo utente).
+
+- Alla fine si apre una finestra di configurazione: per ogni passo spiega COSA fa
+  e PERCHE', e chiede S (si') o N (no). Due passi chiedono il permesso di
+  amministratore una volta sola (regola del firewall e rete di casa "privata").
+
+- TabDeck non manda nulla su Internet: l'unico collegamento e' il controllo
+  degli aggiornamenti su GitHub, che puoi spegnere dalle impostazioni.
+
+Per collegare il telefono in qualsiasi momento: icona "TabDeck" sul Desktop o
+nel menu Start (mostra il codice QR da inquadrare con la fotocamera).
+
+Per disinstallare: Impostazioni di Windows > App installate > TabDeck.

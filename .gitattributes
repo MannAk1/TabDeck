@@ -4,3 +4,9 @@
 tabdeck.py -text
 # Note di sviluppo: non servono nel pacchetto
 docs/superpowers/ export-ignore
+# Solo per chi sviluppa: fuori dal pacchetto e dagli aggiornamenti
+tests/ export-ignore
+installer/ export-ignore
+pubblica.ps1 export-ignore
+pubblica.bat export-ignore
+*.iss -text

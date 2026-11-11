@@ -66,12 +66,25 @@ if ($bad.Count) {
 }
 Write-Host "  Controllo segreti: ok" -ForegroundColor Green
 
+# --- programma di installazione (TabDeck-Setup.exe) ---------------------------------------------
+$iscc = Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe"
+if (-not (Test-Path $iscc)) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+if (-not (Test-Path $iscc)) { Fail "Inno Setup 6 non trovato (winget install JRSoftware.InnoSetup)" }
+$build = Join-Path $env:TEMP "tabdeck-build-$ver"
+Remove-Item "$build", "$build.zip", "$build-out" -Recurse -Force -ErrorAction SilentlyContinue
+git archive --format=zip -o "$build.zip" HEAD          # stessi file dello zip di GitHub (.gitattributes export-ignore)
+Expand-Archive "$build.zip" $build
+& $iscc /Q "/DAppVer=$ver" "/DSrc=$build" "/O$build-out" installer\TabDeck.iss
+$exe = Join-Path "$build-out" "TabDeck-Setup.exe"
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exe)) { Fail "TabDeck-Setup.exe non creato" }
+Write-Host "  Creato $exe" -ForegroundColor Green
+
 # --- pubblicazione ------------------------------------------------------------------------------
 $tag = "v$ver"
 git tag -a $tag -m "TabDeck $ver"
 if ($LASTEXITCODE -ne 0) { Fail "tag non creato" }
 git push origin main --follow-tags
 if ($LASTEXITCODE -ne 0) { Fail "push non riuscito (il tag $tag resta solo in locale: 'git tag -d $tag' per toglierlo)" }
-& $gh release create $tag --title "TabDeck $ver" --notes $Note --verify-tag
-if ($LASTEXITCODE -ne 0) { Fail "release non creata (tag gia' inviato: riprova con 'gh release create $tag')" }
+& $gh release create $tag $exe --title "TabDeck $ver" --notes $Note --verify-tag
+if ($LASTEXITCODE -ne 0) { Fail "release non creata (tag gia' inviato: riprova con 'gh release create $tag $exe')" }
 Write-Host "  Pubblicata TabDeck $ver" -ForegroundColor Green

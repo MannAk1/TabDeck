@@ -182,7 +182,7 @@ if ($Uninstall) {
         } else { Skip "dati tenuti in $data" }
     }
     Info ""
-    Info "Per togliere del tutto TabDeck, alla fine cancella la cartella $Here"
+    if (-not (Test-Path (Join-Path $Here "unins000.exe"))) { Info "Per togliere del tutto TabDeck, alla fine cancella la cartella $Here" }
     Summary
     exit 0
 }
