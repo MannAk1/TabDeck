@@ -106,5 +106,5 @@ Se avevi installato dallo zip: doppio clic su `disinstalla.bat`, poi cancella la
 - Avvio a mano: `tabdeck.bat` (oppure `python tabdeck.py --open`; con adb apre la pagina sul tablet
   collegato via USB). Opzione `--host IP` per forzare l'indirizzo.
 - Test: `python -m unittest discover -s tests`.
-- Nuova versione: aumenta `VERSION` in `tabdeck.py`, fai il commit, poi `pubblica.bat -Note "cosa cambia"` (crea anche `TabDeck-Setup.exe` con Inno Setup 6 da `installerTabDeck.iss` e lo allega al rilascio).
+- Nuova versione: aumenta `VERSION` in `tabdeck.py`, fai il commit, poi `pubblica.bat -Note "cosa cambia"` (crea anche `TabDeck-Setup.exe` con Inno Setup 6 da `installer/TabDeck.iss` e lo allega al rilascio).
 - Dettagli: `docs/ARCHITETTURA.md`.
