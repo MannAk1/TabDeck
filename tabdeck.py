@@ -299,7 +299,7 @@ NAV = [
     ("hd2", "Helldivers 2", "Stratagemmi ed equipaggiamento", "target"),
 ]
 
-VERSION = "1.0.4"
+VERSION = "1.1.0"
 # Valori predefiniti (quelli del PC originale); data\config.json, scritto dall'installer, li sostituisce.
 PORT = 8765
 # Reti su cui TabDeck accetta di ascoltare (prefisso dell'indirizzo del PC). 172.20.10.x = hotspot dell'iPhone.
@@ -3427,6 +3427,15 @@ def sync_uninstall_version(version, key_path=UNINSTALL_KEY):
         return False
 
 
+def web_manifest(token):
+    """Descrizione dell'app per la schermata Home (Android/iPhone): tutto schermo, icona, avvio con il token
+    (le app aggiunte alla Home possono avere cookie separati dal browser)."""
+    return {"name": "TabDeck", "short_name": "TabDeck", "start_url": "/?t=" + token, "scope": "/",
+            "display": "fullscreen", "orientation": "any", "background_color": "#0a0b08", "theme_color": "#0a0b08",
+            "icons": [{"src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png"},
+                      {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"}]}
+
+
 def pair_allowed(client_ip, bound_ip):
     """La pagina /pair mostra il token: la si apre solo dal PC stesso (stesso indirizzo o localhost)."""
     return client_ip in (bound_ip, "127.0.0.1")
@@ -3533,6 +3542,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(403, "403 Forbidden")
         u = urlparse(self.path)
         q = parse_qs(u.query)
+        if u.path in ("/apple-touch-icon.png", "/icon-512.png"):   # icona per la schermata Home: pubblica, niente segreti
+            try:
+                with open(os.path.join(ASSETS_DIR, u.path[1:]), "rb") as f:
+                    return self._send(200, f.read(), "image/png", {"Cache-Control": "public, max-age=86400"})
+            except OSError:
+                return self._send(404, "404")
         if u.path == "/pair":   # abbinamento del telefono: niente token, ma SOLO da questo PC
             bound = self.server.server_address[0]
             if not pair_allowed(self.client_address[0], bound):
@@ -3546,6 +3561,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, render_page(self.server.token), "text/html; charset=utf-8", {"Set-Cookie": cookie})
         if u.path == "/ping":
             return self._send(200, "ok")
+        if u.path == "/manifest.json":   # "Aggiungi a schermata Home": app a tutto schermo che riparte gia' collegata
+            return self._send(200, json.dumps(web_manifest(self.server.token)), "application/manifest+json")
         if u.path.startswith("/appicon/") and u.path.endswith(".png"):
             key = u.path[len("/appicon/"):-len(".png")]
             data = app_icon(key) if re.match(r"^[0-9a-f]{16}$", key) else None

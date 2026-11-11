@@ -487,6 +487,9 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
    env(safe-area-inset-*) = spazio per notch e barra "home" dell'iPhone (viewport-fit=cover).
    ================================================================================================ */
 @media (max-width:600px){
+ /* niente zoom/pagina che si sposta con due dita o "rimbalza" (iPhone): i gesti restano a TabDeck */
+ html,body{overscroll-behavior:none;touch-action:pan-x pan-y}
+ body{position:fixed;left:0;top:0;right:0;bottom:0}
  #bar{flex:0 0 calc(56px + env(safe-area-inset-bottom));padding:0 10px env(safe-area-inset-bottom);gap:8px}
  #logo,#clock,#batt,#sp{display:none}
  #st{flex:1;min-width:0;max-width:none}
@@ -504,11 +507,19 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  .ic,.ic img{width:50px;height:50px}
  #tbar{overflow-x:auto;-webkit-overflow-scrolling:touch}
  .b.tk{flex:0 0 72px;min-width:72px}
- /* Audio: brano, voce, poi i cursori (che scorrono di lato) */
- #mix.show{flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
- #np{flex:none}
- #npc{flex:0 0 170px}
- #mixer{flex:0 0 380px}
+ /* Audio: tutto in una schermata, SENZA scorrere la pagina (i cursori sono verticali: un trascinamento in
+    verticale cambierebbe il volume invece di scorrere). Brano compatto: copertina piccola, titolo accanto. */
+ #mix.show{flex-direction:column}
+ #np{flex:none;display:grid;grid-template-columns:92px 1fr;column-gap:10px;row-gap:3px;align-items:center;padding:8px 10px 10px}
+ #np>.sh{grid-column:1/-1}
+ #npc{grid-column:1;grid-row:2/5;height:92px;min-height:0}
+ #npc svg{width:40px;height:40px}
+ #npt,#npa,#npapp{grid-column:2;min-width:0}
+ #npt{font-size:16px}
+ #npbar,#nptime,#npctl,#voice{grid-column:1/-1}
+ #npctl{height:50px}
+ #voice{height:48px}
+ #mixer{flex:1;min-height:0}
  #mback{display:none}
  /* Discord: server in riga in alto, canali, chiamata in basso */
  #dc{flex-direction:column;gap:8px}
@@ -518,8 +529,8 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  #dcvc{flex:0 1 auto;min-height:0}
  #dcmem{max-height:112px}
  #dcobtn{width:100%}
- /* Touchpad: pad sopra, tastiera sotto */
- #pad{flex-direction:column}
+ /* Touchpad: tastiera sopra, pad in basso (vicino al pollice) */
+ #pad{flex-direction:column-reverse}
  #tpwrap{flex:1;min-height:0}
  #kb{flex:0 0 auto}
  #keys{grid-auto-rows:46px}
@@ -560,6 +571,9 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  .fa{height:48px;padding:0 14px;font-size:13px}
 }
 @media (max-height:500px) and (-webkit-min-device-pixel-ratio:2),(max-height:500px) and (min-aspect-ratio:21/10){
+ /* niente zoom/pagina che si sposta con due dita o "rimbalza" (iPhone): i gesti restano a TabDeck */
+ html,body{overscroll-behavior:none;touch-action:pan-x pan-y}
+ body{position:fixed;left:0;top:0;right:0;bottom:0}
  #bar{flex:0 0 42px;gap:8px;padding:0 calc(10px + env(safe-area-inset-right)) 0 calc(10px + env(safe-area-inset-left))}
  #logo,#batt{display:none}
  #nav{height:32px;font-size:13px}

@@ -151,6 +151,22 @@ pubblicati non ci siano token, segreti Discord o percorsi personali, poi tag + p
 
 ---
 
+### Telefoni (layout e app a tutto schermo)
+- Tutte le regole per i telefoni sono in fondo a `web/style.css`, in due media query: verticale
+  `(max-width:600px)`; orizzontale `(max-height:500px)` E densita' >= 2 (o schermo >= 2,1:1). Il tablet
+  (962x481 a densita' 1,33 con la barra di Chrome) non corrisponde a nessuna: resta identico.
+- Audio in verticale sta in una schermata sola (i cursori del volume sono verticali: niente pagina da scorrere).
+- Tocchi: `lastScroll` (evento scroll in cattura su tutto il documento) annulla il tocco se qualcosa scorre o
+  stava scorrendo da < 150 ms; il menu finestra si apre tenendo premuto (HOLD_MS) col dito ancora giu' e
+  ignora i tocchi finche' il dito non si alza (+450 ms), perche' Safari manda un "tap" al rilascio.
+- App per la schermata Home: `/manifest.json?t=<token>` (display fullscreen, start_url con il token: le app
+  aggiunte alla Home possono avere cookie separati) e icone pubbliche `/apple-touch-icon.png`, `/icon-512.png`.
+  Su iPhone il token resta nella barra indirizzi (Safari salva quell'indirizzo per l'icona); zoom con due dita
+  bloccato (`gesturestart`, `touch-action: pan-x pan-y`, body fisso).
+- Link diretti per le prove: `/#mix`, `/#set-td`, ... (sezione o scheda delle impostazioni aperta all'avvio).
+
+---
+
 ## 4. Discord (RPC locale)
 
 - Discord espone una **named pipe** (`\\.\pipe\discord-ipc-N`). Messaggi: intestazione 8 byte

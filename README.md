@@ -68,8 +68,9 @@ Se avevi installato dallo zip: doppio clic su `disinstalla.bat`, poi cancella la
 
 ## Limiti da sapere
 
-- **Schermo del telefono**: per ora l'aspetto è quello del tablet, rimpicciolito. Usalo in orizzontale.
-  Una versione pensata per il telefono arriverà con un aggiornamento.
+- **Telefono**: funziona sia in verticale che in orizzontale. Per averlo **a tutto schermo** aggiungilo alla
+  schermata Home (Android: menu ⋮ → *Aggiungi a schermata Home*; iPhone: Safari → Condividi → *Aggiungi alla
+  schermata Home*) e aprilo dall'icona. Su iPhone tenere premuto un riquadro può a volte richiedere un secondo tentativo.
 - **Helldivers 2**: la lettura dello schermo (Sync dell'equipaggiamento, ricariche) è tarata sul gioco
   **in italiano a 1920×1080**. Con altre lingue o risoluzioni i pulsanti degli stratagemmi funzionano,
   la lettura automatica probabilmente no.

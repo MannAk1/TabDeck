@@ -32,7 +32,12 @@ var CD0 = __CD__, CD = {}, PEND = null, ARR = null, NA = [], USE = {};
 var TOKEN = "__TOKEN__", LOADOUT = __LOADOUT__, SETTINGS = __SETTINGS__, ALWAYS = __ALWAYS__, HOLD_MS = __HOLD__, editMode = false, online = true, multiActive = false;
 document.body.className = "pos-" + SETTINGS.pos + (SETTINGS.theme && SETTINGS.theme !== "hd" ? " th-" + SETTINGS.theme : "");
 var HASH = (location.hash || "").slice(1);  /* #mix, #set-td ... apre subito una sezione */
-try { history.replaceState(null, "", "/"); } catch (e) {}  /* il token sparisce dalla barra indirizzi */
+var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+/* il token sparisce dalla barra indirizzi. Su iPhone resta: "Aggiungi alla schermata Home" salva l'indirizzo
+   della pagina e l'app aggiunta non condivide i cookie di Safari (senza token non si aprirebbe). */
+try { history.replaceState(null, "", IOS ? "/?t=" + TOKEN : "/"); } catch (e) {}
+/* iPhone: Safari ignora user-scalable=no; niente zoom con due dita (ruberebbe i gesti di TabDeck) */
+document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, false);  /* il token sparisce dalla barra indirizzi */
 var st = document.getElementById("st"), ck = document.getElementById("clock");
 function status(c, txt) { var k = "mono " + c; if (st.className !== k) { st.className = k; } if (st.textContent !== txt) { st.textContent = txt; } }
 function setText(el, t) { t = String(t); if (el.textContent !== t) { el.textContent = t; } }
@@ -105,16 +110,29 @@ function activate(el, alt) {
 }
 /* Tocco: il comando parte al RILASCIO, solo se il dito non si e' mosso e la lista non ha scorso.
    Tenendo premuto uno stratagemma oltre HOLD_MS se ne vede il nome, senza attivarlo. */
+/* Qualsiasi scorrimento (pagina del telefono, liste, strisce laterali) segna l'ora: un tocco che arriva mentre
+   la pagina scorre ancora (per fermarla) o durante il quale qualcosa ha scorso non preme il riquadro. */
+var lastScroll = 0;
+document.addEventListener("scroll", function () { lastScroll = Date.now(); }, {capture: true, passive: true});
 function bind(el) {
   var sx = 0, sy = 0, t0 = 0, sc = 0, live = false, lastTouch = 0, multi = false, ht = null;
   var scroller = el.closest(".scroll") || document.body;
   function unhold() { if (ht) { clearTimeout(ht); ht = null; } cls(el, "held", false); }
   el.addEventListener("touchstart", function (e) {
     if (e.touches.length > 1) { live = false; multi = true; unhold(); cls(el, "on", false); return; }  /* gesto a due dita: nessun tasto */
-    var p = e.touches[0]; sx = p.clientX; sy = p.clientY; t0 = Date.now(); sc = scroller.scrollTop; live = true; multi = false;
+    var p = e.touches[0]; sx = p.clientX; sy = p.clientY; t0 = Date.now(); sc = scroller.scrollTop; multi = false;
+    live = t0 - lastScroll > 150;       /* la pagina stava ancora scorrendo: questo tocco la ferma soltanto */
+    if (!live) { return; }
     cls(el, "on", true);
     unhold();
-    ht = setTimeout(function () { ht = null; if (live && !editMode && winOf(el)) { cls(el, "held", true); } }, HOLD_MS);
+    ht = setTimeout(function () {
+      ht = null;
+      var hw = live && !editMode && winOf(el);
+      if (!hw) { return; }
+      /* finestra aperta: il menu si apre SUBITO, col dito ancora giu' (su iPhone il sistema annulla i tocchi
+         lunghi prima del rilascio, quindi aspettare il rilascio non funzionerebbe) */
+      live = false; cls(el, "on", false); openWinMenu(el, hw, true);
+    }, HOLD_MS);
   }, {passive: true});
   el.addEventListener("touchmove", function (e) {
     if (e.touches.length > 1) { multi = true; }
@@ -130,13 +148,13 @@ function bind(el) {
     cls(el, "on", false); unhold();
     /* scorrimento su una finestra: su = ingrandisci / ripristina, giu' = riduci a icona */
     var ct = e.changedTouches && e.changedTouches[0];
-    if (ct && !live && !multi && !multiActive && !editMode && scroller.scrollTop === sc) {
+    if (ct && !live && !multi && !multiActive && !editMode && scroller.scrollTop === sc && lastScroll < t0) {
       var dx = ct.clientX - sx, dy = ct.clientY - sy, sw = winOf(el);
       if (sw && Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) { winAct(el, sw, dy < 0 ? "max" : "min"); return; }
     }
     if (!live || multiActive) { live = false; return; }
     live = false;
-    if (scroller.scrollTop !== sc) { return; }
+    if (scroller.scrollTop !== sc || lastScroll >= t0) { return; }
     if (!editMode && Date.now() - t0 >= HOLD_MS) { var hw = winOf(el); if (hw) { openWinMenu(el, hw); return; } }   /* finestra aperta: menu */
     if (el.classList.contains("s") && !editMode && Date.now() - t0 >= HOLD_MS) {
       status("", name(el) + "  " + el.getAttribute("data-c")); return;
@@ -290,13 +308,25 @@ function winAct(el, r, a) {
     cls(el, "on", false); flash(el, code === 200 ? "ok" : "err");
     var j = null; try { j = JSON.parse(txt); } catch (e) {}
     if (code === 200) { status("ok", (j ? j.r : a) + ": " + r.n); }
-    else { status("err", code === 404 ? "Finestra chiusa" : code === 409 ? "Windows ha rifiutato" : code === 0 ? "PC non raggiungibile" : "Errore " + code); }
+    else {
+      /* 409: di solito una finestra avviata come amministratore (es. Gestione attivita'): Windows non lascia che
+         un programma normale come TabDeck la comandi */
+      status("err", code === 404 ? "Finestra chiusa" : code === 409 ? "Windows non lo permette: app avviata come amministratore" :
+        code === 0 ? "PC non raggiungibile" : "Errore " + code);
+    }
     afterWin(j);
   });
 }
 /* menu (tenendo premuto): accanto al riquadro, azioni grandi da toccare */
 var wmenu = document.getElementById("wmenu"), wbox = document.getElementById("wbox");
-function openWinMenu(el, r) {
+/* Il menu si apre col dito ancora giu': finche' quel dito non si alza (e per un attimo dopo) il menu ignora i
+   tocchi, altrimenti il "tap" che Safari manda al rilascio lo chiuderebbe o premerebbe la voce sotto il dito. */
+var menuHold = false, menuQuietUntil = 0;
+function menuRelease() { if (menuHold) { menuHold = false; menuQuietUntil = Date.now() + 450; } }
+document.addEventListener("touchend", function (e) { if (!e.touches || e.touches.length === 0) { menuRelease(); } }, {capture: true, passive: true});
+document.addEventListener("touchcancel", menuRelease, {capture: true, passive: true});
+function openWinMenu(el, r, held) {
+  menuHold = !!held;
   var items = [];
   if (r.tab) { items.push(["front", "Porta davanti"]); }
   if (el.hasAttribute("data-grp")) { items.push(["list", "Lista"]); }
@@ -322,6 +352,9 @@ function openWinMenu(el, r) {
   if (top < 8) { top = Math.max(8, Math.min(H - bh - 8, rc.top + rc.height / 2 - bh / 2)); left = rc.right + 6 + bw > W - 8 ? Math.max(8, rc.left - bw - 6) : rc.right + 6; }
   wbox.style.left = left + "px"; wbox.style.top = top + "px";
 }
+wmenu.addEventListener("click", function (e) {      /* fase di cattura: prima delle voci del menu */
+  if (menuHold || Date.now() < menuQuietUntil) { e.stopPropagation(); e.preventDefault(); }
+}, true);
 wmenu.addEventListener("click", function (e) { if (e.target === wmenu) { cls(wmenu, "show", false); } }, false);
 /* gruppi (browser, launcher, giochi): si aprono in una finestra */
 function openGroup(id) { cls(document.getElementById("pop_" + id), "show", true); }
