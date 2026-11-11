@@ -299,7 +299,7 @@ NAV = [
     ("hd2", "Helldivers 2", "Stratagemmi ed equipaggiamento", "target"),
 ]
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 # Valori predefiniti (quelli del PC originale); data\config.json, scritto dall'installer, li sostituisce.
 PORT = 8765
 # Reti su cui TabDeck accetta di ascoltare (prefisso dell'indirizzo del PC). 172.20.10.x = hotspot dell'iPhone.
@@ -3326,7 +3326,7 @@ def update_status():
         res = None
     return {"cur": VERSION, "repo": bool(UPDATE_REPO), "latest": UPD["latest"], "notes": UPD["notes"] or "",
             "newer": parse_version(UPD["latest"]) > parse_version(VERSION),
-            "result": res, "backup": updater.latest_backup(HERE) is not None}
+            "result": res, "backup": updater.previous_backup(HERE, VERSION) is not None}
 
 
 def update_check():
@@ -3380,7 +3380,7 @@ def update_apply():
 
 def update_rollback():
     import updater
-    if updater.latest_backup(HERE) is None:
+    if updater.previous_backup(HERE, VERSION) is None:
         return "Nessuna versione precedente salvata"
     _spawn_updater(["rollback", "--old", VERSION])
     return ""

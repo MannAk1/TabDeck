@@ -96,9 +96,28 @@ def _copy(src_root, dst_root, rels):
         shutil.copy2(os.path.join(src_root, *rel.split("/")), dst)
 
 
-def make_backup(root, version):
+_VER_RE = re.compile(r'^VERSION = "(\d+)\.(\d+)\.(\d+)"', re.M)
+
+
+def disk_version(root):
+    """Versione scritta in tabdeck.py SUL DISCO (puo' differire da quella in esecuzione)."""
+    try:
+        with open(os.path.join(root, "tabdeck.py"), encoding="utf-8") as f:
+            m = _VER_RE.search(f.read())
+    except OSError:
+        return None
+    return ".".join(m.groups()) if m else None
+
+
+def _ver_tuple(name):
+    m = re.match(r"^v?(\d+)\.(\d+)\.(\d+)$", name or "")
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def make_backup(root):
+    """Copia il codice in backup\v<versione sul disco>\ (si tengono le ultime 3 copie)."""
     base = os.path.join(root, "backup")
-    dst = os.path.join(base, "v" + version)
+    dst = os.path.join(base, "v" + (disk_version(root) or "sconosciuta"))
     if os.path.isdir(dst):
         shutil.rmtree(dst)
     _copy(root, dst, code_files(root))
@@ -116,6 +135,17 @@ def latest_backup(root):
     dirs = [os.path.join(base, d) for d in os.listdir(base) if d.startswith("v")]
     dirs = [d for d in dirs if os.path.isfile(os.path.join(d, "tabdeck.py"))]
     return max(dirs, key=os.path.getmtime) if dirs else None
+
+
+def previous_backup(root, current):
+    """La copia piu' recente di una versione PIU' VECCHIA di `current` (mai una piu' nuova)."""
+    cur = _ver_tuple(current)
+    base = os.path.join(root, "backup")
+    if cur is None or not os.path.isdir(base):
+        return None
+    olds = [(_ver_tuple(d[1:]), d) for d in os.listdir(base) if d.startswith("v")]
+    olds = [(v, d) for v, d in olds if v and v < cur and os.path.isfile(os.path.join(base, d, "tabdeck.py"))]
+    return os.path.join(base, max(olds)[1]) if olds else None
 
 
 def install_zip(root, zip_path):
@@ -200,7 +230,7 @@ def _apply(root, zip_path, pid, old, new):
     backup = None
     try:
         check_zip(zip_path)
-        backup = make_backup(root, old)
+        backup = make_backup(root)
         install_zip(root, zip_path)
     except Exception as e:  # noqa: BLE001
         _log(root, "errore prima dell'avvio: %r" % e)
@@ -234,8 +264,9 @@ def _apply(root, zip_path, pid, old, new):
 
 
 def _rollback(root, pid, cur):
-    b = latest_backup(root)
     _wait_pid(pid)
+    cur = disk_version(root) or cur
+    b = previous_backup(root, cur)
     if not b:
         _start(root)
         _result(root, False, cur, cur, "nessuna copia di sicurezza")
@@ -243,7 +274,7 @@ def _rollback(root, pid, cur):
     prev = os.path.basename(b)[1:]
     _log(root, "ritorno dalla %s alla %s" % (cur, prev))
     try:
-        make_backup(root, cur)
+        make_backup(root)
         restore(root, b)
     except Exception as e:  # noqa: BLE001
         _log(root, "ritorno non riuscito: %r" % e)

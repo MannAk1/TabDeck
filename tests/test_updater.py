@@ -86,7 +86,7 @@ class FilesTest(unittest.TestCase):
         self.assertEqual(_read(self.root, "data/token.txt"), "A")
 
     def test_backup_restore_roundtrip(self):
-        b = updater.make_backup(self.root, "1.0.0")
+        b = updater.make_backup(self.root)
         self.assertTrue(os.path.isdir(b))
         self.assertFalse(os.path.exists(os.path.join(b, "data")))
         _write(self.root, "tabdeck.py", "broken")
@@ -96,14 +96,16 @@ class FilesTest(unittest.TestCase):
 
     def test_backup_keeps_three(self):
         for i in range(5):
-            updater.make_backup(self.root, "1.0.%d" % i)
+            _write(self.root, "tabdeck.py", 'VERSION = "1.0.%d"\n' % i)
+            updater.make_backup(self.root)
             time.sleep(0.02)
         left = sorted(os.listdir(os.path.join(self.root, "backup")))
         self.assertEqual(left, ["v1.0.2", "v1.0.3", "v1.0.4"])
 
     def test_latest_backup(self):
         self.assertIsNone(updater.latest_backup(self.root))
-        updater.make_backup(self.root, "1.0.0")
+        _write(self.root, "tabdeck.py", 'VERSION = "1.0.0"\n')
+        updater.make_backup(self.root)
         self.assertTrue(updater.latest_backup(self.root).endswith("v1.0.0"))
 
 
@@ -157,6 +159,33 @@ class StartAlwaysTest(unittest.TestCase):
             r = json.load(f)
         self.assertFalse(r["ok"])
         self.assertIn("locked", r["error"])
+
+
+class VersionsTest(unittest.TestCase):
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        _write(self.root, "data/x", "")
+
+    def _ver(self, v):
+        _write(self.root, "tabdeck.py", 'x = 1\nVERSION = "%s"\n' % v)
+
+    def test_disk_version(self):
+        self._ver("1.2.3")
+        self.assertEqual(updater.disk_version(self.root), "1.2.3")
+        os.remove(os.path.join(self.root, "tabdeck.py"))
+        self.assertIsNone(updater.disk_version(self.root))
+
+    def test_backup_named_after_disk(self):
+        self._ver("1.0.1")
+        self.assertTrue(updater.make_backup(self.root).endswith("v1.0.1"))
+
+    def test_previous_backup_is_older(self):
+        self._ver("1.0.0")
+        updater.make_backup(self.root)
+        self._ver("1.0.1")
+        updater.make_backup(self.root)          # copia piu' recente, ma NON precedente
+        self.assertTrue(updater.previous_backup(self.root, "1.0.1").endswith("v1.0.0"))
+        self.assertIsNone(updater.previous_backup(self.root, "1.0.0"))
 
 
 if __name__ == "__main__":
