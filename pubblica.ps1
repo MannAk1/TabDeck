@@ -87,4 +87,5 @@ git push origin main --follow-tags
 if ($LASTEXITCODE -ne 0) { Fail "push non riuscito (il tag $tag resta solo in locale: 'git tag -d $tag' per toglierlo)" }
 & $gh release create $tag $exe --title "TabDeck $ver" --notes $Note --verify-tag
 if ($LASTEXITCODE -ne 0) { Fail "release non creata (tag gia' inviato: riprova con 'gh release create $tag $exe')" }
+Remove-Item "$build", "$build.zip", "$build-out" -Recurse -Force -ErrorAction SilentlyContinue   # file temporanei della build
 Write-Host "  Pubblicata TabDeck $ver" -ForegroundColor Green
