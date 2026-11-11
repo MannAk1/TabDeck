@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>TabDeck - Collega il telefono</title>
+<style>
+  body { margin: 0; background: #14151c; color: #e8e8f0; font: 16px/1.5 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px; display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .qr { background: #fff; padding: 12px; border-radius: 8px; line-height: 0; }
+  .qr svg { width: 300px; height: 300px; }
+  .txt { flex: 1; min-width: 260px; }
+  h1 { font-size: 26px; margin: 0 0 12px; letter-spacing: .5px; }
+  ol { padding-left: 20px; } li { margin: 8px 0; }
+  code { display: block; background: #23252f; padding: 8px 10px; border-radius: 6px; word-break: break-all; user-select: all; }
+  .warn { color: #f0c36c; font-size: 14px; margin-top: 20px; }
+  .ver { color: #8a8ca0; font-size: 13px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="qr">__QR__</div>
+  <div class="txt">
+    <h1>Collega il telefono a TabDeck</h1>
+    <ol>
+      <li>Collega il telefono alla <b>stessa rete Wi-Fi</b> di questo PC.</li>
+      <li>Apri la <b>fotocamera</b> e inquadra il codice: si apre TabDeck, gia' collegato.</li>
+      <li>Per averlo sempre a portata: nel browser che si &egrave; aperto, menu <b>&#8942;</b> &rarr; <b>Aggiungi a schermata Home</b>. Se un giorno TabDeck non si apre pi&ugrave;, torna qui e inquadra di nuovo il codice.</li>
+    </ol>
+    <p>Se il codice non funziona, apri questo indirizzo nel browser del telefono:</p>
+    <code>__URL__</code>
+    <p class="warn">Tieni questa pagina per te: il codice contiene la chiave di accesso a TabDeck.
+      Puoi riaprirla quando vuoi da questo PC con lo stesso indirizzo.</p>
+    <p class="ver">TabDeck __VERSION__</p>
+  </div>
+</main>
+</body>
+</html>

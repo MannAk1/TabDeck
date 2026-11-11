@@ -1,0 +1,13 @@
+# Stato e segreti (token, impostazioni, accesso Discord): restano solo su questo PC
+data/
+# Rigenerabile (icone estratte, schermate di debug)
+cache/
+# Copie di sicurezza manuali (con git non servono piu')
+backup/
+__pycache__/
+*.pyc
+*.tmp
+# Spazio di lavoro dei piani (temporaneo)
+.superpowers/
+# Note di sviluppo private (piani e specifiche): non pubblicate
+docs/superpowers/

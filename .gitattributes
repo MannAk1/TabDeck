@@ -1,0 +1,6 @@
+# File di Windows: restano con i fine riga CRLF, anche nello zip dei rilasci GitHub
+*.bat -text
+*.ps1 -text
+tabdeck.py -text
+# Note di sviluppo: non servono nel pacchetto
+docs/superpowers/ export-ignore

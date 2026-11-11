@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0a0b08">
+<title>TabDeck</title>
+<style>__CSS__</style></head><body>
+<div id="bar"><div id="logo">TAB<span>DECK</span></div>
+<div id="nav">__NAVICON__<span id="navname">Generale</span><i>&#9650;</i></div>
+<div id="sp"></div><div id="st" class="mono">pronto</div><div id="batt" class="mono"></div><div id="clock" class="mono"></div>
+<div id="gear">__GEARICON__</div><div id="fs">__FULLICON__</div></div>
+<div id="set"><div id="setbox"><div id="setmain">
+<div class="spn show" id="sp_fav"><h3>Pulsanti</h3>
+<div class="rsel" id="rsel"><div data-r="avvio" class="sel">Preferiti</div><div data-r="sistema">Sistema</div><div data-r="strumenti">Strumenti</div></div>
+<div class="od">Tocca un riquadro per spostarlo o toglierlo. Da sinistra a destra, come nella riga. Un riquadro sta in una sola riga.</div>
+<div id="favrow" class="favrow"></div>
+<div id="favact"><div class="fa" data-fa="left">&#9664; Sposta</div><div class="fa" data-fa="right">Sposta &#9654;</div><div class="fa fx" data-fa="del">&#10005; Togli</div><div class="fa" data-fa="edit" id="faedit">&#9998; Modifica</div></div>
+<div id="favsave"><div class="fa" id="favundo">Annulla</div><div class="fa fsave" id="favok">Salva</div></div>
+<div class="ol">Aggiungi &middot; scorciatoie</div><div id="adkeys" class="favrow"></div><div class="fa" id="newkey" style="margin-top:8px">+ Nuova scorciatoia</div>
+<div class="ol">Aggiungi &middot; app aperte ora</div><div id="favopen" class="favrow"></div>
+<div class="ol">Aggiungi &middot; app</div><div id="favknown" class="favrow"></div>
+<div class="ol">Aggiungi &middot; speciali</div><div id="adspec" class="favrow"></div></div>
+<div class="spn" id="sp_hd2"><h3>Helldivers 2</h3>
+<div class="opt"><div class="ol">Helldivers 2 &middot; inserimento stratagemmi</div>
+<div class="seg" data-k="input"><div data-v="wasd">Ctrl + WASD</div><div data-v="arrows">Ctrl + frecce</div></div>
+<div class="od">&laquo;Ctrl + frecce&raquo; se in gioco hai attivato l'inserimento con le frecce (cosi' non ti fermi).</div></div>
+<div class="opt"><div class="ol">Ctrl + WASD &rarr; frecce (solo in Helldivers 2) &middot; BETA</div>
+<div class="seg" data-k="remap"><div data-v="off">Spento</div><div data-v="on">Attivo</div></div>
+<div class="od">Con l'inserimento sulle frecce: tenendo Ctrl, W A S D diventano &uarr; &larr; &darr; &rarr; per chiamare a mano.</div></div>
+<div class="opt"><div class="ol">Posizione equipaggiamento</div>
+<div class="seg" data-k="pos"><div data-v="left">Sinistra</div><div data-v="right">Destra</div><div data-v="top">Sopra</div><div data-v="bottom">Sotto</div></div></div></div>
+<div class="spn" id="sp_look"><h3>Aspetto</h3>
+<div class="opt"><div class="ol">Tema colori</div>
+<div class="seg" data-k="theme"><div data-v="hd"><i style="background:#f5c518"></i>Helldivers</div><div data-v="notte"><i style="background:#4fd1ff"></i>Notte</div>
+<div data-v="discord"><i style="background:#8b93ff"></i>Discord</div></div>
+<div class="seg" data-k="theme" style="margin-top:6px"><div data-v="term"><i style="background:#39ff6a"></i>Terminale</div><div data-v="rosso"><i style="background:#ff4d3d"></i>Rosso</div>
+<div data-v="oled"><i style="background:#fff"></i>Nero OLED</div></div>
+<div class="od">Cambiano solo i colori: nessun effetto sulla velocit&agrave;.</div></div></div>
+<div class="spn" id="sp_pad"><h3>Touchpad</h3>
+<div class="opt"><div class="ol">Velocit&agrave; touchpad</div>
+<div class="seg" data-k="pad"><div data-v="slow">Lenta</div><div data-v="med">Normale</div><div data-v="fast">Veloce</div></div></div></div>
+<div class="spn" id="sp_dc"><h3>Discord</h3><div class="opt"><div class="ol">Collegamento</div><div id="dcsetst" class="setst"></div></div>
+<div class="fa" data-sa="reauth">Riautorizza</div><div class="fa fx" data-sa="logout">Scollega TabDeck</div>
+<div class="od">&laquo;Scollega&raquo; cancella l'accesso salvato: per riusare la sezione Discord andr&agrave; autorizzato di nuovo.</div></div>
+<div class="spn" id="sp_td"><h3>TabDeck</h3><div class="opt"><div class="ol">Indirizzo sul PC</div><div id="tdinfo" class="setst mono"></div></div>
+<div class="opt"><div class="ol">Versione</div><div id="updst" class="setst"></div><div id="updnotes" class="od"></div></div>
+<div class="fa" id="updchk">Cerca aggiornamenti</div><div class="fa fsave" id="updgo" style="display:none">Aggiorna</div><div class="fa" id="updback" style="display:none">Torna alla versione precedente</div>
+<div class="opt"><div class="ol">Controlla aggiornamenti all'avvio</div><div class="seg" data-k="updchk"><div data-v="on">S&igrave;</div><div data-v="off">No</div></div>
+<div class="od">Una volta al giorno TabDeck chiede a GitHub se c'&egrave; una nuova versione e mostra un pallino sull'ingranaggio. Non installa nulla da solo.</div></div>
+<div class="fa" data-sa="reload">Ricarica pagina</div><div class="fa" data-sa="restart">Riavvia TabDeck</div>
+<div class="od">&laquo;Riavvia&raquo; riavvia il server sul PC: la pagina si riapre da sola dopo qualche secondo.</div></div>
+</div><div id="kedit"><h3 id="kehd">Nuova scorciatoia</h3>
+<div class="ol">Nome</div><input id="kename" type="text" maxlength="24" autocomplete="off" placeholder="es. Task Manager">
+<div class="ol">Tasti &middot; <span id="keprev" class="mono"></span></div>
+<div class="kgrid" id="kmods">__MODGRID__</div><div class="kgrid" id="kkeys" style="margin-top:8px">__KEYGRID__</div>
+<div class="ol">Icona</div><div class="kgrid kico" id="kicons">__ICONGRID__</div>
+<div id="kebtns"><div class="fa fx" id="kedel">Elimina</div><div class="fa" id="kecancel">Annulla</div><div class="fa fsave" id="kesave">Salva</div></div></div>
+<div id="settabs"><div class="stab sel" data-sp="fav">Pulsanti</div><div class="stab" data-sp="hd2">Helldivers 2</div>
+<div class="stab" data-sp="look">Aspetto</div><div class="stab" data-sp="pad">Touchpad</div><div class="stab" data-sp="dc">Discord</div><div class="stab" data-sp="td">TabDeck</div>
+<div id="setclose">Chiudi</div></div></div></div>
+<div id="navpop" class="gpop"><div class="gbox"><div class="ghd"><b>Sezioni</b><span class="gx">Chiudi</span></div><div class="ngrid">__NAVTILES__</div></div></div>
+<div id="wmenu"><div id="wbox"></div></div>
+<div id="grid" class="pane show">__BUTTONS__</div>__POPS__
+<div id="mix" class="pane">
+<div id="np" class="off"><div class="sh">In riproduzione</div><div id="npc">__SVG_music__</div>
+<div id="npt">Niente in riproduzione</div><div id="npa"></div><div id="npapp"></div>
+<div id="npbar"><div id="npfill"></div></div><div id="nptime" class="mono"><span id="npp">0:00</span><span id="npd">0:00</span></div>
+<div id="npctl"><button class="b" data-mc="prev" data-n="Precedente">__SVG_prev__</button>
+<button class="b" id="nptog" data-mc="toggle" data-n="Play/pausa"><span class="it">__SVG_tri__</span><span class="ip">__SVG_pause__</span></button>
+<button class="b" data-mc="next" data-n="Successivo">__SVG_next__</button></div>
+<div class="sh">Voce</div><div id="voice"><div class="vb" id="vmic"><span class="v1">__SVG_mic__</span><span class="v2">__SVG_mic_off__</span><span class="vl">Mic</span></div>
+<div class="vb dc na" id="vdmute"><span class="v1">__SVG_mic__</span><span class="v2">__SVG_mic_off__</span><span class="vl">Discord</span></div>
+<div class="vb dc na" id="vddeaf"><span class="v1">__SVG_headset__</span><span class="v2">__SVG_headset_off__</span><span class="vl">Cuffie</span></div></div></div>
+<div id="mixer"><div class="sh">Volume per app</div><div id="strips" class="scroll"></div></div>
+<button class="b media" id="mback" data-go="grid" data-n="Generale">__SVG_grid__<span class="l">Generale</span><span class="h mono">&lsaquo; indietro</span></button></div>
+<div id="dc" class="pane">
+<div id="dcoff"><div class="dcmsg">Discord &egrave; chiuso</div><button class="b app" id="dcobtn" data-dca="open" style="--c:#8b93ff">__SVG_headset__<span class="l">Apri Discord</span></button></div>
+<div id="dcg"></div>
+<div id="dcch"><div class="sh" id="dcgname">Server</div><div id="dclist"></div></div>
+<div id="dcvc"><div class="sh">In chiamata</div><div id="dcvhd"><div id="dcvname">&nbsp;</div><div id="dcvsrv"></div></div><div id="dcmem"></div>
+<div id="dcmic"><span class="dcml">Microfono</span><input type="range" id="dcinv" min="0" max="100" step="1" value="100"><span id="dcinvv" class="mono">--</span></div>
+<div id="dcbtn"><button class="b dcb" id="dcbm" data-dca="mute" style="--c:#8b93ff"><span class="v1">__SVG_mic__</span><span class="v2">__SVG_mic_off__</span><span class="l">Muto</span></button>
+<button class="b dcb" id="dcbd" data-dca="deaf" style="--c:#8b93ff"><span class="v1">__SVG_headset__</span><span class="v2">__SVG_headset_off__</span><span class="l">Cuffie</span></button>
+<button class="b game" id="dcleave" data-dca="leave">__SVG_leave__<span class="l">Esci</span></button></div></div></div>
+<div class="gpop" id="pop_dcu"><div class="gbox dcubox"><div class="ghd"><b id="dcun">Utente</b><span class="gx">Chiudi</span></div>
+<div class="dcuv"><input type="range" id="dcur" min="0" max="200" step="5" value="100"><span id="dcuval" class="mono">100%</span></div>
+<div class="dcuq"><button class="b media" data-dca="u100"><span class="l">Volume 100%</span></button>
+<button class="b app" id="dcum" data-dca="umute"><span class="l">Muto per me</span></button></div></div></div>
+<div id="pad" class="pane">
+<div id="tpwrap"><div id="tp"><span>1 dito: muovi &middot; tocco: clic<br>2 dita: scorri &middot; tocco a 2 dita: clic destro<br>tieni premuto &laquo;Sinistro&raquo; e muovi per trascinare</span></div>
+<div id="tpb"><div class="tb" data-b="l">Sinistro</div><div class="tb" data-b="m">Centrale</div><div class="tb" data-b="r">Destro</div></div></div>
+<div id="kb"><div class="sh">Tastiera &middot; tocca il campo e scrivi</div>
+<input id="kin" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tocca qui e scrivi sul PC">
+<div id="keys">__PADKEYS__</div></div></div>
+<div id="mon" class="pane">
+<div class="mrow">
+<div class="mc kcpu"><div class="mch"><b>CPU</b><span id="m_cn"></span></div><div class="mv mono" id="m_cpu">--</div><canvas id="g_cpu"></canvas><div class="mf2 mono" id="m_cpuf"></div></div>
+<div class="mc kgpu"><div class="mch"><b>GPU</b><span id="m_gn"></span></div><div class="mv mono" id="m_gpu">--</div><canvas id="g_gpu"></canvas><div class="mf2 mono" id="m_gpuf"></div></div>
+<div class="mc kram"><div class="mch"><b>RAM</b><span id="m_rams"></span></div><div class="mv mono" id="m_ram">--</div><canvas id="g_ram"></canvas><div class="mf2 mono" id="m_ramf"></div></div>
+<div class="mc kvram"><div class="mch"><b>VRAM</b><span>memoria video</span></div><div class="mv mono" id="m_vram">--</div><canvas id="g_vram"></canvas><div class="mf2 mono" id="m_vramf"></div></div>
+</div>
+<div class="mrow mrow2">
+<div class="mc kcpu"><div class="mch"><b>Thread CPU</b><span id="m_ncores"></span></div><div id="mcores"></div></div>
+<div class="mc knet"><div class="mch"><b>Rete</b><span>tutte le schede</span></div><div class="mbig"><div><em>&darr; Download</em><b class="mono" id="m_rx">--</b></div><div><em>&uarr; Upload</em><b class="mono" id="m_tx">--</b></div></div></div>
+<div class="mc kdisk"><div class="mch"><b>Disco</b><span id="m_disk">attivit&agrave; --%</span></div><div class="mbig"><div><em>Lettura</em><b class="mono" id="m_dr">--</b></div><div><em>Scrittura</em><b class="mono" id="m_dw">--</b></div></div></div>
+</div></div>
+<div id="hd2" class="pane">
+<div id="side"><div id="lohead"><span class="gh">Equip.</span><span id="sync" class="ebtn">Sync</span><span id="edit" class="ebtn">Modifica</span></div><div id="lo"></div>
+<div class="fxh">Sempre disponibili</div><div id="fixed"></div></div>
+<div id="main"><div id="jump">__JUMP__</div><div id="hd2all" class="scroll">__STRATS__</div></div>
+</div>
+<script>__JS__</script></body></html>
