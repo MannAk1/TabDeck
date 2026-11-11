@@ -479,3 +479,142 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
 .kico div{display:flex;align-items:center;justify-content:center;width:52px;padding:0}
 .kico svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #kebtns{margin-top:14px}
+/* ================================================================================================
+   TELEFONO. Tutte le regole per i telefoni stanno qui, dentro due media query: il tablet (1280x800
+   orizzontale) non corrisponde a nessuna delle due e resta identico.
+   - verticale: larghezza <= 600 px  - orizzontale: altezza <= 500 px E (densita' >= 2 oppure schermo >= 2,1:1).
+     Il tablet (densita' 1,33, 962x481 = 2:1 con la barra di Chrome) cosi' non viene preso per un telefono.
+   env(safe-area-inset-*) = spazio per notch e barra "home" dell'iPhone (viewport-fit=cover).
+   ================================================================================================ */
+@media (max-width:600px){
+ #bar{flex:0 0 calc(56px + env(safe-area-inset-bottom));padding:0 10px env(safe-area-inset-bottom);gap:8px}
+ #logo,#clock,#batt,#sp{display:none}
+ #st{flex:1;min-width:0;max-width:none}
+ #nav{height:42px;padding:0 16px 0 10px;font-size:14px;letter-spacing:.08em}
+ #gear,#fs{width:46px;height:42px}
+ .pane{padding-top:env(safe-area-inset-top)}
+ /* Generale: 3 riquadri per riga, si scorre in verticale */
+ #grid.show{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch}
+ #secs{gap:14px}
+ .sec,.sec-avvio,.sec-wins{flex:none}
+ .row{flex:none;flex-wrap:wrap;gap:8px}
+ .row .b{flex:0 0 calc((100% - 16px) / 3);height:108px}
+ .b svg{width:34px;height:34px}
+ .b .l,.sec-avvio .b .l{font-size:13px;letter-spacing:.03em;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+ .ic,.ic img{width:50px;height:50px}
+ #tbar{overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .b.tk{flex:0 0 72px;min-width:72px}
+ /* Audio: brano, voce, poi i cursori (che scorrono di lato) */
+ #mix.show{flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
+ #np{flex:none}
+ #npc{flex:0 0 170px}
+ #mixer{flex:0 0 380px}
+ #mback{display:none}
+ /* Discord: server in riga in alto, canali, chiamata in basso */
+ #dc{flex-direction:column;gap:8px}
+ #dcg{flex:0 0 70px;flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:0 8px}
+ .dg.sel:before{left:12px;top:auto;bottom:-6px;width:34px;height:4px}
+ #dcch{flex:1 1 40%;min-height:170px}
+ #dcvc{flex:0 1 auto;min-height:0}
+ #dcmem{max-height:112px}
+ #dcobtn{width:100%}
+ /* Touchpad: pad sopra, tastiera sotto */
+ #pad{flex-direction:column}
+ #tpwrap{flex:1;min-height:0}
+ #kb{flex:0 0 auto}
+ #keys{grid-auto-rows:46px}
+ /* Monitor: schede su 2 colonne */
+ #mon.show{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch}
+ .mrow{flex-wrap:wrap;margin-bottom:8px}
+ .mrow .mc{flex:0 0 calc(50% - 4px);height:170px}
+ .mrow2 .mc,.mrow2 .mc:first-child{flex:1 1 100%;height:140px}
+ .mv{font-size:32px}
+ /* Helldivers 2: equipaggiamento in riga in alto, sempre (qualunque posizione scelta) */
+ #hd2{flex-direction:column !important}
+ #side{flex:0 0 auto !important;flex-direction:column !important;border:0 !important;border-bottom:1px solid var(--line) !important}
+ #lohead{flex-direction:row !important;padding:6px 10px 0 !important}
+ #lo{flex:none;grid-template-rows:none;grid-template-columns:repeat(4,1fr);height:92px;padding:6px 10px}
+ #lo .hint{grid-row:auto;grid-column:1/-1}
+ #lo .s img{width:52px;height:52px}
+ #lo .s .n{font-size:11px}
+ .fxh{display:none}
+ #fixed{width:auto !important;grid-template-columns:repeat(4,1fr);padding:0 10px 8px !important}
+ #fixed .s{height:52px}
+ #fixed .s img{width:38px;height:38px}
+ .gl{grid-template-columns:repeat(auto-fill,minmax(78px,1fr))}
+ /* menu, finestre a comparsa, impostazioni: a tutto schermo */
+ .gbox{width:100vw;max-width:100vw;max-height:100%;box-sizing:border-box;padding:calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom))}
+ .ngrid{grid-template-columns:1fr 1fr;gap:8px}
+ .nt{height:86px;gap:10px;padding:0 10px}
+ .nt svg{width:32px;height:32px}
+ .nt b{font-size:15px;letter-spacing:.06em}
+ .ggrid,#pop_altre .ggrid{grid-template-columns:repeat(3,1fr)}
+ #pop_altre .gbox{width:100vw;max-width:100vw;max-height:100%}
+ #set #setbox{width:100vw;max-width:100vw;height:100%;max-height:100%;box-sizing:border-box;flex-direction:column;gap:10px;
+  padding:calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom))}
+ #settabs{order:-1;flex:0 0 auto;flex-direction:row;flex-wrap:wrap;gap:6px}
+ .stab{flex:1 1 22%;justify-content:center;height:40px;padding:0 4px;font-size:12px;letter-spacing:.04em}
+ #settabs #setclose{margin:0;flex:1 1 22%;height:40px;line-height:40px;padding:0}
+ #kedit{left:10px;right:10px;top:calc(64px + env(safe-area-inset-top))}
+ .fi{flex:0 0 calc((100% - 16px) / 3);width:auto}
+ .fa{height:48px;padding:0 14px;font-size:13px}
+}
+@media (max-height:500px) and (-webkit-min-device-pixel-ratio:2),(max-height:500px) and (min-aspect-ratio:21/10){
+ #bar{flex:0 0 42px;gap:8px;padding:0 calc(10px + env(safe-area-inset-right)) 0 calc(10px + env(safe-area-inset-left))}
+ #logo,#batt{display:none}
+ #nav{height:32px;font-size:13px}
+ #gear,#fs{height:30px}
+ .pane{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+ #grid,#mix,#dc,#pad,#mon{padding-top:6px;padding-bottom:6px}
+ .sh{font-size:10px}
+ .b{padding:3px}
+ .b svg{width:26px;height:26px}
+ .b .l,.sec-avvio .b .l{font-size:11px;letter-spacing:.02em}
+ .b .h,.b:after{display:none}
+ .b:before{border-width:12px 12px 0 0}
+ .ic,.ic img{width:34px;height:34px}
+ .mo{font-size:20px}
+ #secs{gap:4px}
+ .sec{gap:3px}
+ .row{gap:5px}
+ .sec-wins{flex:0 0 58px}
+ #tbar{flex:0 0 44px}
+ .b.tk{height:44px;min-width:50px}
+ .tk img{width:30px;height:30px;margin:-15px 0 0 -15px}
+ #np{flex:0 0 250px;padding:6px 8px 8px;gap:4px}
+ #npt{font-size:15px}
+ #npctl{flex:0 0 44px}
+ #voice{flex:0 0 44px}
+ #mback{flex:0 0 70px}
+ .ms{min-width:62px;padding:4px}
+ .msi{width:30px;height:30px;flex:0 0 30px}
+ .msi img{left:3px;top:3px;width:24px;height:24px}
+ .msn{font-size:10px}
+ .msv{font-size:15px}
+ .mm{flex:0 0 28px}
+ #dcg{flex:0 0 62px}
+ .dg{flex:0 0 46px;width:46px;height:46px}
+ #dcvc{flex:0 0 250px}
+ #dcbtn{flex:0 0 52px}
+ #dcmic{flex:0 0 36px}
+ #tpb{flex:0 0 44px}
+ #kb{flex:0 0 250px}
+ #kin{flex:0 0 40px}
+ .mv{font-size:24px}
+ .mbig b{font-size:17px}
+ #side{flex:0 0 150px}
+ #lo .s img{width:44px;height:44px}
+ #lo .s .n{font-size:11px}
+ #fixed .s{height:40px}
+ #fixed .s img{width:30px;height:30px}
+ .s{height:64px}
+ .s img{width:44px;height:44px}
+ .gl{grid-template-columns:repeat(auto-fill,minmax(64px,1fr))}
+ .gbox{max-height:100%;box-sizing:border-box}
+ .nt{height:64px}
+ #set #setbox{height:100%;max-height:100%;box-sizing:border-box;padding:8px calc(8px + env(safe-area-inset-right)) 8px calc(8px + env(safe-area-inset-left))}
+ #settabs{flex:0 0 150px;gap:4px}
+ .stab{flex:0 0 38px;font-size:12px;padding:0 10px}
+ #settabs #setclose{flex:0 0 38px;height:38px;line-height:38px}
+ #kedit{right:170px}
+}

@@ -31,6 +31,7 @@ var TABS = __TABS__, TAB_NAMES = __TABNAMES__;
 var CD0 = __CD__, CD = {}, PEND = null, ARR = null, NA = [], USE = {};
 var TOKEN = "__TOKEN__", LOADOUT = __LOADOUT__, SETTINGS = __SETTINGS__, ALWAYS = __ALWAYS__, HOLD_MS = __HOLD__, editMode = false, online = true, multiActive = false;
 document.body.className = "pos-" + SETTINGS.pos + (SETTINGS.theme && SETTINGS.theme !== "hd" ? " th-" + SETTINGS.theme : "");
+var HASH = (location.hash || "").slice(1);  /* #mix, #set-td ... apre subito una sezione */
 try { history.replaceState(null, "", "/"); } catch (e) {}  /* il token sparisce dalla barra indirizzi */
 var st = document.getElementById("st"), ck = document.getElementById("clock");
 function status(c, txt) { var k = "mono " + c; if (st.className !== k) { st.className = k; } if (st.textContent !== txt) { st.textContent = txt; } }
@@ -1370,5 +1371,7 @@ function gestureEnd(e) {
 document.addEventListener("touchend", gestureEnd, false);      /* fase di bolla: dopo i tasti */
 document.addEventListener("touchcancel", gestureEnd, false);
 try { var savedTab = localStorage.getItem("tabdeck_tab"); if (TABS.indexOf(savedTab) > 0) { showTab(savedTab); } } catch (e) {}
+if (TABS.indexOf(HASH) >= 0) { showTab(HASH); }
+if (HASH.indexOf("set") === 0) { setOpen(true); setTab(HASH.split("-")[1] || "fav"); }
 [].forEach.call(document.querySelectorAll(".b, #hd2all .s"), bind);
 buildLoadout();
