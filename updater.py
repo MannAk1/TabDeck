@@ -115,7 +115,7 @@ def _ver_tuple(name):
 
 
 def make_backup(root):
-    """Copia il codice in backup\v<versione sul disco>\ (si tengono le ultime 3 copie)."""
+    """Copia il codice in backup/v<versione sul disco>/ (si tengono le ultime 3 copie)."""
     base = os.path.join(root, "backup")
     dst = os.path.join(base, "v" + (disk_version(root) or "sconosciuta"))
     if os.path.isdir(dst):
