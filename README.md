@@ -10,14 +10,17 @@ sulla stessa rete Wi-Fi. Nessun account, nessun servizio esterno: tutto resta in
 Serve: **Windows 10 o 11** e il **telefono sulla stessa rete Wi-Fi del PC** (il PC può anche essere
 collegato al router via cavo).
 
-1. Scarica l'ultima versione: pagina **Releases** del progetto su GitHub, file **Source code (zip)**.
-2. Clic destro sullo zip, **Estrai tutto**.
-3. Nella cartella estratta, doppio clic su **`installa.bat`**.
+1. Scarica **`TabDeck-Setup.exe`** dall'ultima versione: <https://github.com/MannAk1/TabDeck/releases/latest>.
+2. Aprilo. Windows probabilmente dirà **"Windows ha protetto il PC"**: è normale per i programmi senza firma
+   digitale a pagamento. Clicca **Ulteriori informazioni** → **Esegui comunque**.
+3. Avanti → **Installa** → lascia spuntato *Configura TabDeck adesso* → **Fine**.
 
-L'installer fa un passo alla volta: per ognuno spiega **cosa fa e perché** e chiede `S` (sì) o `N` (no).
-Se rispondi N quel passo viene saltato e alla fine trovi il riepilogo. I passi:
+Il programma si installa solo per il tuo utente (non chiede l'amministratore) e crea l'icona **TabDeck** sul
+Desktop e nel menu Start. Alla fine parte la **configurazione guidata**: un passo alla volta, per ognuno
+spiega **cosa fa e perché** e chiede `S` (sì) o `N` (no). Se rispondi N quel passo viene saltato e alla fine
+trovi il riepilogo. I passi:
 
-- sposta TabDeck in `C:\Users\<tu>\TabDeck` (se l'hai estratto in Download) e sblocca i file scaricati;
+- sblocca i file scaricati;
 - controlla Python e, se manca, propone di installarlo (Python 3.12 ufficiale, con winget);
 - chiede conferma della **rete di casa**: TabDeck ascolterà solo lì, non sui Wi-Fi di bar o alberghi;
 - se Windows considera la rete di casa "pubblica", propone di renderla "privata";
@@ -26,16 +29,19 @@ Se rispondi N quel passo viene saltato e alla fine trovi il riepilogo. I passi:
 - propone l'**avvio automatico** con Windows;
 - avvia TabDeck e apre sul PC la pagina con il **codice QR**.
 
-Vuoi vedere cosa farebbe senza cambiare nulla? `installa.bat -DryRun`.
+La configurazione si può rifare quando vuoi (es. se cambi rete o router): menu Start → **TabDeck - Configura**.
+
+In alternativa al setup: scarica **Source code (zip)**, estrailo e fai doppio clic su `installa.bat`
+(stessi passi; se lo estrai in Download propone di spostarlo in `C:\Users\<tu>\TabDeck`).
 
 ## Collegare il telefono
 
-Inquadra il QR con la fotocamera: TabDeck si apre già collegato. Per averlo sempre a portata, nel
-browser che si è aperto: menu ⋮ → **Aggiungi a schermata Home**.
+Doppio clic sull'icona **TabDeck** (Desktop o menu Start): avvia TabDeck se è spento e apre sul PC la
+pagina con il **codice QR**. Inquadralo con la fotocamera: TabDeck si apre già collegato. Per averlo sempre
+a portata, nel browser che si è aperto: menu ⋮ (o Condividi su iPhone) → **Aggiungi a schermata Home**.
 
-La pagina del QR si riapre in ogni momento **dal PC** all'indirizzo che l'installer mostra alla fine
-(`http://<indirizzo-del-PC>:8765/pair`). Dagli altri dispositivi quella pagina non si apre: il QR contiene
-la chiave di accesso, tienilo per te.
+La pagina del QR si apre solo **dal PC**: dagli altri dispositivi no, perché il QR contiene la chiave di
+accesso. Tienilo per te.
 
 ## Aggiornare
 
@@ -53,8 +59,12 @@ collegamento a Internet che fa TabDeck (oltre alle immagini degli avatar di Disc
 
 ## Disinstallare
 
-Doppio clic su **`disinstalla.bat`**: toglie la regola del firewall e l'avvio automatico. I tuoi dati
-restano, a meno che tu non scriva `CANCELLA` quando lo chiede. Poi puoi cancellare la cartella.
+Impostazioni di Windows → **App installate** → TabDeck → **Disinstalla** (oppure menu Start →
+**Disinstalla TabDeck**). Si apre la finestra che toglie la regola del firewall e l'avvio automatico: alla
+fine premi un tasto per chiuderla e Windows rimuove il resto. I tuoi dati (impostazioni, chiave del
+telefono, Discord) restano, a meno che tu non scriva `CANCELLA` quando lo chiede.
+
+Se avevi installato dallo zip: doppio clic su `disinstalla.bat`, poi cancella la cartella.
 
 ## Limiti da sapere
 
@@ -86,7 +96,7 @@ restano, a meno che tu non scriva `CANCELLA` quando lo chiede. Poi puoi cancella
 |---|---|
 | `tabdeck.py`, `tdqr.py`, `updater.py` | il programma (solo libreria standard di Python) |
 | `web/` | la pagina mostrata sul telefono |
-| `installa.ps1` + `.bat` | installazione e disinstallazione guidate |
+| `installa.ps1` + `.bat`, `apri.ps1` | configurazione e disinstallazione guidate, icona "TabDeck" |
 | `data/` | **tue impostazioni e chiavi** (token, rete, Discord): mai condividerla, mai toccata dagli aggiornamenti |
 | `cache/`, `backup/` | file rigenerabili e copie delle versioni precedenti |
 | `docs/ARCHITETTURA.md` | come funziona, sicurezza, prestazioni |
@@ -96,5 +106,5 @@ restano, a meno che tu non scriva `CANCELLA` quando lo chiede. Poi puoi cancella
 - Avvio a mano: `tabdeck.bat` (oppure `python tabdeck.py --open`; con adb apre la pagina sul tablet
   collegato via USB). Opzione `--host IP` per forzare l'indirizzo.
 - Test: `python -m unittest discover -s tests`.
-- Nuova versione: aumenta `VERSION` in `tabdeck.py`, fai il commit, poi `pubblica.bat -Note "cosa cambia"`.
+- Nuova versione: aumenta `VERSION` in `tabdeck.py`, fai il commit, poi `pubblica.bat -Note "cosa cambia"` (crea anche `TabDeck-Setup.exe` con Inno Setup 6 da `installerTabDeck.iss` e lo allega al rilascio).
 - Dettagli: `docs/ARCHITETTURA.md`.
