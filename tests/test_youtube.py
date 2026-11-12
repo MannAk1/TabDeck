@@ -172,6 +172,20 @@ class PlayerTest(unittest.TestCase):
         self.p.toggle()
         self.assertEqual(self.p.poll(), [{"a": "play"}])
 
+    def test_blocked_autoplay_sets_state_and_notice(self):
+        self.p.play_now(_it("a"))
+        self.p.poll()
+        self.p.report({"t": "blocked"})
+        s = self.p.snapshot()
+        self.assertEqual(s["state"], "blocked")
+        self.assertEqual(s["notice"]["kind"], "blocked")
+        self.assertEqual(s["cur"]["id"], _it("a")["id"])
+        self.c.t += 30
+        self.p.poll()
+        self.assertEqual(self.p.snapshot()["notice"]["kind"], "blocked")   # resta finche' non parte
+        self.p.report({"t": "state", "s": 1, "pos": 1, "dur": 200})
+        self.assertIsNone(self.p.snapshot()["notice"])
+
     def test_closed_before_first_poll(self):
         p = youtube.Player(clock=self.c)
         self.assertFalse(p.is_open())

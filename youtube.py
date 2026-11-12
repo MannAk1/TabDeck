@@ -183,7 +183,7 @@ class Player:
 
     def snapshot(self):
         with self.lock:
-            if self.notice and self.clock() - self.notice["t"] > NOTICE_S:
+            if self.notice and self.notice.get("kind") != "blocked" and self.clock() - self.notice["t"] > NOTICE_S:
                 self.notice = None
             op = self._open()
             st = "closed" if not op else ("ad" if self.ad and self.state == "playing" else self.state)
@@ -212,17 +212,24 @@ class Player:
             t = ev.get("t")
             if t == "state":
                 self.state = _YT_STATES.get(ev.get("s"), self.state)
+                if self.state == "playing" and self.notice and self.notice.get("kind") == "blocked":
+                    self.notice = None
                 self.ad = bool(ev.get("ad"))
                 for k in ("pos", "dur"):
                     v = ev.get(k)
                     if isinstance(v, (int, float)) and v >= 0:
                         setattr(self, k, float(v))
+            elif t == "blocked" and self.cur is not None:
+                # il browser non lascia partire il video da solo (Firefox: "Riproduzione automatica")
+                self.state = "blocked"
+                self.notice = {"kind": "blocked", "msg": "il browser blocca l'avvio automatico",
+                               "id": self.cur["id"], "title": self.cur.get("title", ""), "t": self.clock()}
             elif t == "ended":
                 self._next()
             elif t == "error":
                 code = ev.get("code")
                 if code in _SKIP_CODES and self.cur is not None:
-                    self.notice = {"msg": "non riproducibile qui", "id": self.cur["id"],
+                    self.notice = {"kind": "embed", "msg": "non riproducibile qui", "id": self.cur["id"],
                                    "title": self.cur.get("title", ""), "t": self.clock()}
                     self._next()
 

@@ -11,6 +11,8 @@ html,body{margin:0;height:100%;background:#000;color:#9aa;font:13px system-ui,sa
 /* Pagina del player di TabDeck: gira solo su http://localhost. Chiede i comandi a TabDeck ogni mezzo secondo
    e riferisce cosa sta facendo. Host "nocookie" + origin: con l'host normale i video musicali danno errore 150. */
 var K = new URLSearchParams(location.search).get("k") || "", player = null, ready = false, curId = null, lastRep = 0;
+/* avvio bloccato: dopo un caricamento il player torna "non avviato" senza mai suonare e senza errori */
+var loadAt = 0, played = false, buf = false;
 function setS(t) { document.getElementById("s").textContent = t; }
 function rep(o) {
   var x = new XMLHttpRequest();
@@ -28,7 +30,7 @@ function state(s) {
   rep(o); lastRep = Date.now();
 }
 function run(c) {
-  if (c.a === "load") { curId = c.id; player.loadVideoById({videoId: c.id, startSeconds: c.pos || 0}); }
+  if (c.a === "load") { curId = c.id; loadAt = Date.now(); played = false; buf = false; player.loadVideoById({videoId: c.id, startSeconds: c.pos || 0}); }
   else if (c.a === "play") { player.playVideo(); }
   else if (c.a === "pause") { player.pauseVideo(); }
   else if (c.a === "seek") { player.seekTo(c.s, true); }
@@ -56,6 +58,12 @@ function onYouTubeIframeAPIReady() {
       onReady: function () { ready = true; setS("TabDeck: pronto"); poll(); },
       onStateChange: function (e) {
         if (e.data === 0) { rep({t: "ended"}); return; }
+        if (e.data === 1) { played = true; }
+        if (e.data === 3) { buf = true; }
+        if (e.data === -1 && loadAt && buf && !played && Date.now() - loadAt < 8000) {
+          loadAt = 0; rep({t: "blocked"});
+          setS("Il browser blocca l'avvio automatico: consenti audio e video per " + location.host); return;
+        }
         state(e.data);
         try { var d = player.getVideoData(); if (d && d.title) { setS(d.title); } } catch (er) {}
       },
