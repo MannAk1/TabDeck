@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TabDeck</title>
+<style>
+html,body{margin:0;height:100%;background:#101418;color:#c9d0da;font-family:-apple-system,"Segoe UI",Roboto,sans-serif}
+body{display:-webkit-box;display:flex;-webkit-box-align:center;align-items:center;-webkit-box-pack:center;justify-content:center;text-align:center}
+.box{padding:24px;max-width:420px;font-size:16px;line-height:1.45}
+h1{font-size:18px;font-weight:600;margin:0 0 14px;color:#9aa4b2;letter-spacing:.08em;text-transform:uppercase}
+</style></head>
+<body><div class="box"><h1>TabDeck</h1><p id="m">Collegamento...</p></div>
+<script>
+/* Accesso negato (link vecchio o cookie mancante). Nessun segreto qui: se il browser ha un ID dispositivo
+   gia' approvato, /devstate lo riconosce, rimette il cookie e la pagina si ricarica. */
+(function () {
+  var m = document.getElementById("m"), id = "";
+  function fail() { m.textContent = "Link non valido. Inquadra di nuovo il codice QR dalla finestra di TabDeck sul PC."; }
+  try { id = localStorage.getItem("tdd") || ""; } catch (e) {}
+  if (!id) { fail(); return; }
+  var x = new XMLHttpRequest();
+  x.open("GET", "/devstate?_=" + Date.now(), true);
+  x.setRequestHeader("X-Device", id);
+  x.onreadystatechange = function () {
+    if (x.readyState !== 4) { return; }
+    var s = null;
+    try { s = JSON.parse(x.responseText); } catch (e) {}
+    if (x.status === 200 && s && s.state === "ok") { location.replace("/"); } else { fail(); }
+  };
+  try { x.send(); } catch (e) { fail(); }
+})();
+</script>
+</body></html>

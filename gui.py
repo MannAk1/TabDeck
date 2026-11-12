@@ -241,11 +241,23 @@ class Window:
             self.root.clipboard_append(self._url)
 
     def new_link(self):
-        if messagebox.askyesno("Nuovo link", "Creo un nuovo link e un nuovo QR?\n\nIl link vecchio smette di "
-                               "funzionare per i dispositivi nuovi. Quelli gia' approvati restano collegati.",
-                               parent=self.root):
-            self.app.rotate_token()
-            self.refresh()
+        store = self.app.devices
+        if store.require:
+            if not messagebox.askyesno("Nuovo link", "Creo un nuovo link e un nuovo QR?\n\nIl link vecchio smette di "
+                                       "funzionare per i dispositivi nuovi. Quelli approvati restano collegati: "
+                                       "controlla l'elenco e rimuovi quelli che non riconosci.", parent=self.root):
+                return
+        else:
+            # approvazione spenta: chi ha usato il link vecchio e' gia' nell'elenco come approvato, quindi
+            # cambiare solo il link non lo fermerebbe. Si scollegano tutti.
+            if not messagebox.askyesno("Nuovo link", "Creo un nuovo link e un nuovo QR?\n\nL'approvazione e' spenta, "
+                                       "quindi per chiudere fuori chi ha il link vecchio scollego TUTTI i dispositivi: "
+                                       "ricollegali inquadrando il nuovo QR (il tablet via USB si riapre da solo).\n\n"
+                                       "Consiglio: accendi anche \"Richiedi approvazione\".", parent=self.root):
+                return
+            store.revoke_all()
+        self.app.rotate_token()
+        self.refresh()
 
     def toggle_require(self):
         self.app.devices.set_require(self.req.get())

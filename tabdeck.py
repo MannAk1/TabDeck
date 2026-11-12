@@ -3620,6 +3620,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, render_pair(bound, self.server.token), "text/html; charset=utf-8")
         st, dev = self._auth(q, create=u.path in ("/", "/devstate"))
         if st == "bad":
+            if u.path == "/":   # link vecchio o senza cookie: la pagina prova l'ID salvato nel browser (app iOS)
+                with open(os.path.join(WEB_DIR, "recover.html"), "rb") as f:
+                    return self._send(403, f.read(), "text/html; charset=utf-8")
             return self._send(403, "403 Forbidden")
         if u.path == "/devstate":   # la pagina d'attesa chiede ogni 2 s se e' stata approvata
             code = DEVICES.code_of(dev) if DEVICES is not None and dev else None
@@ -4098,6 +4101,12 @@ def quit_tabdeck():
     t.daemon = True
     t.start()
     _STOP.set()
+    try:   # avviato con la console (tabdeck.bat): chiude anche quella finestra, invece di lasciarla su "pause"
+        ppid = os.getppid()
+        if os.path.basename(_exe_of_pid(ppid)).lower() == "cmd.exe":
+            subprocess.run(["taskkill", "/F", "/PID", str(ppid)], capture_output=True)
+    except OSError:
+        pass
     try:
         if DEVICES is not None:
             DEVICES.flush(force=True)
@@ -4349,6 +4358,8 @@ def serve_loop(flags):
                 devs = adb_devices(adb)
                 for d in devs - seen:
                     print("[%s] tablet collegato: %s" % (time.strftime("%H:%M:%S"), d))
+                if SERVER is not None:
+                    url = "http://%s:%d/?t=%s" % (host, PORT, SERVER.token)   # "Nuovo link": riapre il tablet col token nuovo
                 for d in devs:
                     if opened.get(d) != url:
                         opened[d] = url

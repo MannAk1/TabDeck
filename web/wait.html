@@ -19,24 +19,29 @@ p{font-size:16px;line-height:1.45;margin:0;color:#c9d0da}
 </div>
 <script>
 (function () {
-  var TOKEN = "__TOKEN__", STATE = "__STATE__";
-  if (STATE !== "pending") { setTimeout(function () { location.reload(); }, 60000); return; }
+  var TOKEN = "__TOKEN__", STATE = "__STATE__", SAVED = "";
+  /* ID salvato nel browser (es. app dalla schermata Home di iOS senza cookie): se e' gia' approvato, il server
+     rimette il cookie e la pagina si ricarica senza chiedere di nuovo l'approvazione */
+  try { SAVED = localStorage.getItem("tdd") || ""; } catch (e) {}
+  if (STATE !== "pending" && !SAVED) { setTimeout(function () { location.reload(); }, 60000); return; }
   function poll() {
     var x = new XMLHttpRequest();
     x.open("GET", "/devstate?_=" + Date.now(), true);
     x.setRequestHeader("X-Token", TOKEN);
+    if (SAVED) { x.setRequestHeader("X-Device", SAVED); }
     x.timeout = 4000;
     x.onreadystatechange = function () {
       if (x.readyState !== 4) { return; }
       var s = null;
       try { s = JSON.parse(x.responseText); } catch (e) {}
-      if (s && s.state !== "pending") { location.reload(); return; }
+      if (s && s.state === "ok") { location.reload(); return; }
+      if (s && s.state !== "pending") { setTimeout(function () { location.reload(); }, 60000); return; }   /* rifiutato: niente raffiche */
       if (s && s.code) { document.getElementById("code").textContent = s.code; }
       setTimeout(poll, 2000);
     };
     try { x.send(); } catch (e) { setTimeout(poll, 2000); }
   }
-  setTimeout(poll, 2000);
+  setTimeout(poll, SAVED ? 10 : 2000);
 })();
 </script>
 </body></html>

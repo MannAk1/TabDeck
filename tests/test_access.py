@@ -116,6 +116,24 @@ class AccessTest(unittest.TestCase):
         self.assertEqual(st, 403)
         self.assertTrue(json.loads(body).get("pending"))
 
+    def test_devstate_with_approved_header_sets_cookie_without_token(self):
+        dev = self.dev_from(self.req("/")[2])
+        st, body, cookies = self.req("/devstate", token=None, dev=dev)
+        self.assertEqual(st, 200)
+        self.assertEqual(json.loads(body)["state"], "ok")
+        self.assertEqual(self.dev_from(cookies), dev)
+
+    def test_bad_token_root_serves_recovery_page(self):
+        st, body, _ = self.req("/", token=None)
+        self.assertEqual(st, 403)
+        self.assertIn("localStorage", body)
+        self.assertNotIn(TOKEN, body)
+
+    def test_wait_page_tries_stored_id(self):
+        self.store.set_require(True)
+        st, body, _ = self.req("/")
+        self.assertIn('localStorage.getItem("tdd")', body)
+
     def test_log_message_without_path(self):
         h = object.__new__(tabdeck.Handler)
         h.client_address, h.server = ("1.2.3.4", 1), self.srv

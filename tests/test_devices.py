@@ -127,6 +127,17 @@ class DeviceStoreTest(unittest.TestCase):
         with open(self.path, encoding="utf-8") as f:
             self.assertNotEqual(f.read(), before)
 
+    def test_fresh_default_survives_restart(self):
+        self.assertTrue(self.store(fresh=True).require)
+        self.assertTrue(self.store(fresh=False).require)     # dopo il riavvio token.txt esiste gia'
+
+    def test_revoke_all(self):
+        s = self.store(fresh=False)
+        _, i = s.access(None, "1.2.3.4", UA_TAB)
+        s.revoke_all()
+        self.assertFalse(s.is_approved(i))
+        self.assertEqual(self.store(fresh=False).approved(), [])
+
     def test_ua_name(self):
         self.assertEqual(devices.ua_name(UA_IPHONE), "iPhone")
         self.assertEqual(devices.ua_name(UA_TAB), "SM-T230")

@@ -54,6 +54,7 @@ class DeviceStore:
         self.on_change = None
         self._lock = threading.RLock()
         self.require, self._dev = bool(fresh_install), {}
+        missing = not os.path.exists(path)
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
@@ -68,6 +69,11 @@ class DeviceStore:
         self._refusals = collections.deque()
         self.locked_until = 0.0
         self._last_dirty, self._wrote = False, self.now()
+        if missing:
+            try:
+                self._save()   # la scelta iniziale (accesa sulle installazioni nuove) resta anche dopo un riavvio
+            except OSError:
+                pass
 
     # --- salvataggio ---
     def _save(self):
@@ -181,6 +187,12 @@ class DeviceStore:
             if d is not None and name:
                 d["name"] = name
                 self._changed()
+
+    def revoke_all(self):
+        """"Nuovo link" con l'approvazione spenta: tutti fuori, si ricollegano con il nuovo QR."""
+        with self._lock:
+            self._dev.clear()
+            self._changed()
 
     def set_require(self, on):
         with self._lock:
