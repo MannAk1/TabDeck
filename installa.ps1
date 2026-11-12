@@ -121,7 +121,7 @@ function Run-Admin([string[]]$cmds) {
 
 function Stop-TabDeck {
     $me = (Join-Path $Here "tabdeck.py").ToLower()
-    Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.ToLower().Contains($me) } | ForEach-Object {
+    Get-CimInstance Win32_Process -Filter "Name='python.exe' or Name='pythonw.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.ToLower().Contains($me) } | ForEach-Object {
         $parent = Get-CimInstance Win32_Process -Filter ("ProcessId=" + $_.ParentProcessId) -ErrorAction SilentlyContinue
         Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
         if ($parent -and $parent.Name -eq "cmd.exe") { Stop-Process -Id $parent.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -131,6 +131,21 @@ function Stop-TabDeck {
 function Lnk-Target {
     if (-not (Test-Path $Lnk)) { return $null }
     return (New-Object -ComObject WScript.Shell).CreateShortcut($Lnk).TargetPath
+}
+
+# Il collegamento di avvio e' "nostro" se apre tabdeck.bat (vecchie versioni) o il tabdeck.py di questa cartella
+function Lnk-IsOurs {
+    if (-not (Test-Path $Lnk)) { return $false }
+    $s = (New-Object -ComObject WScript.Shell).CreateShortcut($Lnk)
+    $me = (Join-Path $Here "tabdeck.py").ToLower()
+    return ($s.TargetPath.ToLower() -eq (Join-Path $Here "tabdeck.bat").ToLower()) -or $s.Arguments.ToLower().Contains($me)
+}
+
+# pythonw.exe (senza console) accanto al Python scelto; se manca, lo stesso Python
+function Get-PythonW($exe) {
+    if (-not $exe) { return "pythonw.exe" }
+    $w = Join-Path (Split-Path $exe) "pythonw.exe"
+    if (Test-Path $w) { return $w } else { return $exe }
 }
 
 function Summary {
@@ -165,8 +180,7 @@ if ($Uninstall) {
             if ($ok) { Ok "regola del firewall tolta" } else { Skip "regola del firewall (toglila da 'Windows Defender Firewall')" }
         } else { Skip "regola del firewall" }
     }
-    $t = Lnk-Target
-    if ($t -and $t.ToLower() -eq (Join-Path $Here "tabdeck.bat").ToLower()) {
+    if (Lnk-IsOurs) {
         if (Ask "Togliere l'avvio automatico" @("Cancello il collegamento TabDeck dalla cartella Esecuzione automatica.") @("Cosi' TabDeck non parte piu' all'accensione del PC.")) {
             Act "cancellare $Lnk" { Remove-Item $Lnk -Force }; Ok "avvio automatico tolto"
         } else { Skip "avvio automatico" }
@@ -278,38 +292,39 @@ if ($admin.Count -gt 0) {
 } elseif (-not $fwAsked) { Skip "regola del firewall (il telefono sara' bloccato)" }
 
 # ---------------------------------------------------------------- 4. avvio automatico
-$bat = Join-Path $Here "tabdeck.bat"
+$pyw = Get-PythonW $(if ($py) { $py.exe } else { $null })
+$td = Join-Path $Here "tabdeck.py"
 $t = Lnk-Target
-$extra = if ($t -and $t.ToLower() -ne $bat.ToLower()) { @("ATTENZIONE: sostituisce il collegamento esistente, che avvia: $t") } else { @() }
-if (Ask "Avviare TabDeck con Windows" (@("Metto un collegamento a TabDeck nella cartella Esecuzione automatica (finestra ridotta a icona).") + $extra) @("Cosi' TabDeck e' gia' pronto quando accendi il PC. Puoi toglierlo con disinstalla.bat.")) {
+$extra = if ($t -and -not (Lnk-IsOurs)) { @("ATTENZIONE: sostituisce il collegamento esistente, che avvia: $t") } else { @() }
+if (Ask "Avviare TabDeck con Windows" (@("Metto un collegamento a TabDeck nella cartella Esecuzione automatica.", "All'accensione TabDeck parte senza finestre: compare solo la sua icona vicino all'orologio.") + $extra) @("Cosi' TabDeck e' gia' pronto quando accendi il PC. Puoi toglierlo con disinstalla.bat.")) {
     Act "creare $Lnk" {
         $s = (New-Object -ComObject WScript.Shell).CreateShortcut($Lnk)
-        $s.TargetPath = $bat; $s.WorkingDirectory = $Here; $s.WindowStyle = 7
+        $s.TargetPath = $pyw; $s.Arguments = "`"$td`" --open --tray"; $s.WorkingDirectory = $Here; $s.WindowStyle = 1
         $ico = Join-Path $Here "tabdeck.ico"; if (Test-Path $ico) { $s.IconLocation = $ico }
         $s.Save()
     }
     Ok "avvio automatico con Windows"
-} else { Skip "avvio automatico (avvia TabDeck con tabdeck.bat)" }
+} else { Skip "avvio automatico (avvia TabDeck dall'icona TabDeck)" }
 
 # ---------------------------------------------------------------- 5. avvio + abbinamento
 $pair = "http://$($net.ip):$Port/pair"
-if (Ask "Avviare TabDeck e collegare il telefono" @("Avvio TabDeck (se e' gia' acceso lo riavvio) e apro su questo PC la pagina con il codice QR:", $pair) @("Inquadri il QR con il telefono e TabDeck si apre gia' collegato, senza scrivere nulla.")) {
-    Act "avviare $bat e aprire $pair" {
+if (Ask "Avviare TabDeck e collegare il telefono" @("Avvio TabDeck (se e' gia' acceso lo riavvio): si apre la sua finestra con il codice QR.") @("Inquadri il QR con il telefono e TabDeck si apre gia' collegato, senza scrivere nulla.")) {
+    Act "avviare $pyw $td" {
         Stop-TabDeck
-        Start-Process $bat -WorkingDirectory $Here -WindowStyle Minimized
+        Start-Process $pyw -ArgumentList "`"$td`" --open" -WorkingDirectory $Here
         $up = $false
         for ($i = 0; $i -lt 20 -and -not $up; $i++) {
             Start-Sleep 1
             try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 $pair | Out-Null; $up = $true } catch { }
         }
-        if ($up) { Start-Process $pair; Ok "TabDeck avviato, pagina di abbinamento aperta" }
+        if ($up) { Ok "TabDeck avviato: inquadra il QR nella sua finestra" }
         else {
             Skip "TabDeck non risponde su $pair"
             Info "Controlla la finestra di TabDeck: se dice 'rete non consentita', rilancia installa.bat sulla rete di casa."
         }
     }
-} else { Skip "avvio (apri tabdeck.bat, poi $pair sul PC)" }
+} else { Skip "avvio (apri l'icona TabDeck sul Desktop o nel menu Start)" }
 
 Summary
 Info ""
-Info "Per disinstallare: disinstalla.bat. Per riaprire il QR: $pair (solo da questo PC)."
+Info "Per disinstallare: disinstalla.bat. Il QR e' nella finestra di TabDeck (icona TabDeck, o clic sull'icona vicino all'orologio)."

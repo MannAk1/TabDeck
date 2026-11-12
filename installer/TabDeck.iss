@@ -42,10 +42,10 @@ Name: "desktopicon"; Description: "Icona TabDeck sul Desktop"
 Source: "{#Src}\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Excludes: "data\*,cache\*,backup\*,__pycache__\*"
 
 [Icons]
-Name: "{userprograms}\TabDeck\TabDeck"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\apri.ps1"""; WorkingDir: "{app}"; IconFilename: "{app}\tabdeck.ico"; Comment: "Avvia TabDeck e mostra il QR per collegare il telefono"
+Name: "{userprograms}\TabDeck\TabDeck"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\apri.ps1"""; WorkingDir: "{app}"; IconFilename: "{app}\tabdeck.ico"; Comment: "Apre TabDeck (stato, QR per collegare il telefono, dispositivi)"
 Name: "{userprograms}\TabDeck\TabDeck - Configura"; Filename: "{app}\installa.bat"; WorkingDir: "{app}"; IconFilename: "{app}\tabdeck.ico"; Comment: "Rete, firewall e avvio automatico (da rifare se cambi rete o router)"
 Name: "{userprograms}\TabDeck\Disinstalla TabDeck"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\TabDeck"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\apri.ps1"""; WorkingDir: "{app}"; IconFilename: "{app}\tabdeck.ico"; Comment: "Avvia TabDeck e mostra il QR per collegare il telefono"; Tasks: desktopicon
+Name: "{userdesktop}\TabDeck"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\apri.ps1"""; WorkingDir: "{app}"; IconFilename: "{app}\tabdeck.ico"; Comment: "Apre TabDeck (stato, QR per collegare il telefono, dispositivi)"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\installa.bat"; Description: "Configura TabDeck adesso (consigliato): rete, firewall, collegamento del telefono"; Flags: postinstall shellexec nowait

@@ -36,12 +36,17 @@ In alternativa al setup: scarica **Source code (zip)**, estrailo e fai doppio cl
 
 ## Collegare il telefono
 
-Doppio clic sull'icona **TabDeck** (Desktop o menu Start): avvia TabDeck se è spento e apre sul PC la
-pagina con il **codice QR**. Inquadralo con la fotocamera: TabDeck si apre già collegato. Per averlo sempre
-a portata, nel browser che si è aperto: menu ⋮ (o Condividi su iPhone) → **Aggiungi a schermata Home**.
+Doppio clic sull'icona **TabDeck** (Desktop o menu Start): si apre la finestra di TabDeck con lo stato, il
+**codice QR** e i dispositivi collegati. Inquadra il QR con la fotocamera: TabDeck si apre già collegato. Per
+averlo sempre a portata, nel browser che si è aperto: menu ⋮ (o Condividi su iPhone) → **Aggiungi a schermata Home**.
 
-La pagina del QR si apre solo **dal PC**: dagli altri dispositivi no, perché il QR contiene la chiave di
-accesso. Tienilo per te.
+Chiudendo la finestra TabDeck resta attivo: la sua icona è vicino all'orologio (clic = riapri, clic destro =
+Riavvia / Esci). All'accensione del PC parte già nascosto, solo con l'icona.
+
+**Approvazione dei dispositivi**: con l'opzione "Richiedi approvazione per i nuovi dispositivi" (accesa sulle
+installazioni nuove) un telefono nuovo mostra un codice di 4 cifre e la finestra sul PC lo stesso codice:
+premi **Approva**. Il QR contiene la chiave di accesso: tienilo per te. Se il link finisce in giro, **Nuovo link**
+lo invalida (i dispositivi già approvati restano collegati).
 
 ## Aggiornare
 

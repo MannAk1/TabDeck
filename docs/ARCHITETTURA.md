@@ -27,17 +27,38 @@ prestazioni (con le misure fatte sul tablet). I commenti nel codice rimandano qu
   piccole richieste JSON.
 
 ### Avvio (`main()`)
-0. Una sola istanza per porta (`single_instance`, mutex `Local\TabDeck-<porta>`): se e' gia' preso aspetta fino a 15 s
-   (al riavvio/aggiornamento la vecchia istanza sta uscendo), poi esce con codice 3 e `tabdeck.bat` chiude la finestra
-   senza `pause`. Evita doppi thread Discord/remap HD2 se si riclicca l'icona.
-1. Carica il token (`data/token.txt`, creato al primo avvio).
+Dal 1.2.0 TabDeck gira con `pythonw.exe` (niente console). Opzioni: `--open` (apre la pagina sul tablet via adb),
+`--tray` (parte nascosto: solo l'icona vicino all'orologio; usata dall'avvio automatico), `--restart` (lanciato da
+Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
+0. Una sola istanza per porta (`single_instance`, mutex `Local\TabDeck-<porta>` + evento `Local\TabDeck-<porta>-show`):
+   un secondo avvio normale accende l'evento (la finestra dell'istanza attiva si mostra) ed esce subito (codice 3);
+   con `--restart` invece aspetta fino a 15 s che la vecchia istanza esca.
+   Senza console `print` va in `data/tabdeck.log` (`setup_log`, oltre 256 KB tiene l'ultima meta'; mai il token).
+1. Crea `DEVICES` (`devices.DeviceStore`, `data/devices.json`) e carica il token (`data/token.txt`, creato al primo avvio).
 2. Legge `data/config.json` (rete, porta, adb). Ogni 3 s: legge l'indirizzo del PC; se è sulla rete consentita (`ALLOWED_NETS`) avvia/riavvia il
    server su quell'indirizzo, altrimenti lo ferma.
 3. Con `--open` controlla i dispositivi adb: a un tablet nuovo (o se cambia l'indirizzo) apre la pagina
    con il token nell'URL; la pagina lo toglie subito dalla barra (`history.replaceState`) e da lì in poi
    usa il cookie.
 4. Thread in background: icone dei programmi, `_ctrl_watch` (chiamate manuali HD2), `_remap_thread`
-   (beta), `DISCORD`.
+   (beta), `DISCORD`, e `serve_loop` (punti 2-3) nel thread "server".
+5. Thread principale: la finestra sul PC (`gui.py`, tkinter) e l'icona di notifica (`tray.py`, thread suo,
+   `Shell_NotifyIconW` via ctypes). La finestra non importa tabdeck.py: riceve un oggetto `_App`; gli altri
+   thread non toccano Tk (coda svuotata con `after`). X = nascondi nell'area di notifica; Esci (`quit_tabdeck`)
+   ferma server e icona, salva i dispositivi e termina (dopo 3 s comunque).
+
+### Dispositivi e approvazione (`devices.py`)
+- Ogni browser ha un ID casuale (128 bit): cookie `tdd` + `localStorage` (l'app dalla schermata Home di iOS ha
+  cookie suoi), mandato dalla pagina in `X-Device`.
+- `Handler._auth`: entra chi ha il token giusto oppure un ID approvato (cosi' "Nuovo link" non scollega gli
+  approvati). Con l'approvazione accesa un ID sconosciuto resta "in attesa": la pagina mostra `web/wait.html`
+  con un codice di 4 cifre e chiede `/devstate` ogni 2 s; il PC mostra lo stesso codice con Approva / Rifiuta.
+  Ogni richiesta con un ID valido lo registra (niente accessi invisibili); senza ID non si crea nulla.
+- Limiti: una richiesta per IP, codice valido 2 min, Rifiuta blocca IP e ID 10 min, 3 rifiuti in 10 min
+  sospendono le richieste per 30 min ("Riprendi" nella finestra). Approvare, cambiare l'interruttore o il token:
+  **solo dalla finestra sul PC**, nessuna richiesta di rete puo' farlo.
+- Su disco solo l'interruttore e gli approvati (scrittura atomica; "visto alle" al massimo ogni 60 s).
+  Installazione esistente senza `devices.json` = approvazione spenta; installazione nuova = accesa.
 
 ---
 
@@ -87,6 +108,7 @@ della tastiera. Tutta la difesa serve a che **solo il tablet** abbia il token e 
 | Rete | Il server ascolta **solo sulla rete dell'hotspot** (`ALLOWED_NETS`); su altri Wi-Fi resta chiuso. | `main()` |
 | Accesso | Token casuale (`secrets.token_urlsafe(18)`, 24 caratteri) richiesto su **ogni** richiesta; confronto a tempo costante (`hmac.compare_digest`). | `Handler._token_ok` |
 | Accesso | Cookie `HttpOnly` + `SameSite=Strict`: altri siti aperti sul tablet non possono usarlo. | `do_GET "/"` |
+| Accesso | Approvazione dei nuovi dispositivi dal PC (codice di 4 cifre), con limiti contro chi avesse il link; "Nuovo link" invalida il token. | `devices.py`, `Handler._auth`, `gui.py` |
 | Comandi | Dalla rete si può attivare **solo** un id di pulsante esistente; i programmi partono come lista argv **senza shell**. | `/press`, `trigger` |
 | Comandi | App aggiunte dal tablet: solo programmi con una finestra **aperta ora** (percorso .exe esistente o AUMID dello Store validato con regex). | `open_specs`, `_spec_ok` |
 | Comandi | Scorciatoie personali: solo tasti della lista `KEY_CHOICES` + modificatori. | `key_spec_ok` |
@@ -222,8 +244,8 @@ Regole imparate misurando sul tablet (vedi §6 per come si misura).
 - **Modifiche**: `web/app.js` e `web/style.css` si modificano come file normali (il server li rilegge da
   solo: basta ricaricare la pagina). `tabdeck.py` richiede il riavvio.
 - **Controlli prima di riavviare**: `python -m py_compile tabdeck.py` e `node --check web\app.js`.
-- **Riavvio**: dal tablet (⚙ -> TabDeck -> Riavvia) oppure chiudere la finestra "TabDeck" e rilanciare
-  `TabDeck.lnk`.
+- **Riavvio**: dal tablet (⚙ -> TabDeck -> Riavvia), dalla finestra sul PC o dal menu dell'icona vicino
+  all'orologio. Con la console: Esci, poi `tabdeck.bat`. Registro: finestra -> Registro, o `data	abdeck.log`.
 - **git**: un commit per ogni passo verificato (`git log` per la storia, `git diff` per le modifiche).
 - **Misurare sul tablet** (USB): `adb forward tcp:9222 localabstract:chrome_devtools_remote`, poi Chrome
   DevTools Protocol (Performance.getMetrics, Tracing con eventi `DrawFrame`, `Input.synthesizeScrollGesture`,

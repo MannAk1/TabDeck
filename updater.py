@@ -211,12 +211,13 @@ def _wait_pid(pid, timeout=15):
 
 
 def _start(root):
-    """Avvia tabdeck.bat in una finestra ridotta a icona; restituisce il processo (cmd)."""
-    si = subprocess.STARTUPINFO()
-    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    si.wShowWindow = 7   # SW_SHOWMINNOACTIVE
-    return subprocess.Popen(["cmd", "/c", os.path.join(root, "tabdeck.bat")], cwd=root,
-                            creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=si)
+    """Avvia TabDeck senza console (pythonw), nell'area di notifica; restituisce il processo.
+    --restart: se la vecchia istanza sta ancora chiudendo la aspetta invece di uscire."""
+    w = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+    exe = w if os.path.isfile(w) else sys.executable
+    return subprocess.Popen([exe, os.path.join(root, "tabdeck.py"), "--open", "--restart", "--tray"], cwd=root,
+                            close_fds=True,
+                            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
 
 
 def _kill(proc):

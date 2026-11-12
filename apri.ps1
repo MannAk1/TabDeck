@@ -1,31 +1,24 @@
 # TabDeck - icona "TabDeck" (Desktop e menu Start).
-# Avvia TabDeck se e' spento, poi apre sul PC la pagina con il QR per collegare il telefono.
+# Avvia TabDeck senza console: si apre la sua finestra (stato, QR per collegare il telefono, dispositivi).
+# Se TabDeck e' gia' acceso, la nuova istanza chiede a quella attiva di mostrare la finestra ed esce.
 $ErrorActionPreference = "SilentlyContinue"
 $Here = $PSScriptRoot
 Add-Type -AssemblyName System.Windows.Forms
 
-$port = 8765
-$cfgFile = Join-Path $Here "data\config.json"
-if (Test-Path $cfgFile) {
-    $cfg = Get-Content $cfgFile -Raw -Encoding UTF8 | ConvertFrom-Json
-    if ($cfg.port) { $port = [int]$cfg.port }
-}
-$c = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq "Up" } | Select-Object -First 1
-if (-not $c) {
-    [System.Windows.Forms.MessageBox]::Show("Il PC non e' collegato a nessuna rete. Collegalo al Wi-Fi di casa e riprova.", "TabDeck") | Out-Null
-    exit 1
-}
-$ip = ($c.IPv4Address | Select-Object -First 1).IPAddress
-$url = "http://${ip}:$port/pair"
-
-function Up { try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 $url | Out-Null; return $true } catch { return $false } }
-
-if (-not (Up)) {
-    Start-Process (Join-Path $Here "tabdeck.bat") -WorkingDirectory $Here -WindowStyle Minimized
-    for ($i = 0; $i -lt 20 -and -not (Up); $i++) { Start-Sleep 1 }
-}
-if (Up) {
-    Start-Process $url
+$py = "python.exe"
+$pyFile = Join-Path $Here "data\python.txt"
+if (Test-Path $pyFile) { $py = (Get-Content $pyFile -Raw -Encoding UTF8).Trim() }
+$pyw = $py
+if (Split-Path $py) {
+    $w = Join-Path (Split-Path $py) "pythonw.exe"
+    if (Test-Path $w) { $pyw = $w }
 } else {
-    [System.Windows.Forms.MessageBox]::Show("TabDeck non risponde su $url.`n`nSe il PC e' su una rete diversa da quella di casa scelta all'installazione, rilancia la configurazione dal menu Start (TabDeck - Configura).", "TabDeck") | Out-Null
+    $c = Get-Command pythonw.exe -ErrorAction SilentlyContinue
+    if ($c) { $pyw = $c.Source }
+}
+$td = Join-Path $Here "tabdeck.py"
+try {
+    Start-Process $pyw -ArgumentList "`"$td`" --open" -WorkingDirectory $Here
+} catch {
+    [System.Windows.Forms.MessageBox]::Show("Non trovo Python per avviare TabDeck.`n`nRilancia la configurazione dal menu Start (TabDeck - Configura).", "TabDeck") | Out-Null
 }

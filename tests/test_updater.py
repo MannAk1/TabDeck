@@ -190,3 +190,16 @@ class VersionsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StartCommandTest(unittest.TestCase):
+    def test_start_launches_pythonw_without_console(self):
+        from unittest import mock
+        root = tempfile.mkdtemp()
+        with mock.patch.object(updater.subprocess, "Popen") as po:
+            updater._start(root)
+        cmd = po.call_args[0][0]
+        self.assertNotIn("cmd", [os.path.basename(c).lower() for c in cmd])
+        self.assertTrue(os.path.basename(cmd[0]).lower() in ("pythonw.exe", "python.exe"))
+        self.assertEqual(cmd[1], os.path.join(root, "tabdeck.py"))
+        self.assertEqual(cmd[2:], ["--open", "--restart", "--tray"])
