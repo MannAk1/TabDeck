@@ -117,6 +117,14 @@ class YoutubeApiTest(unittest.TestCase):
         self.assertEqual(self._post("/yt", {"a": "play", "id": "abc"})[0], 400)
         self.assertEqual(self._post("/yt", {"a": "web", "id": "../x"})[0], 400)
 
+    def test_yt_id_with_newline_400(self):
+        self.assertEqual(self._post("/yt", {"a": "play", "id": "AAAAAAAAAAA" + chr(10)})[0], 400)
+
+    def test_yt_quick_plays_open_player_once(self):
+        for v in (VID, "CCHdMIEGaaM", "4NRXx6U8ABQ"):
+            self._post("/yt", {"a": "add", "id": v, "title": "T"})
+        self.assertEqual(self.opened, [False])
+
     def test_yt_bad_numbers_400(self):
         self.assertEqual(self._post("/yt", {"a": "vol", "v": "loud"})[0], 400)
         self.assertEqual(self._post("/yt", {"a": "up", "i": "-x"})[0], 400)

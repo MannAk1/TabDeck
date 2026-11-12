@@ -3757,8 +3757,8 @@ class Handler(BaseHTTPRequestHandler):
                 item = {"id": vid, "title": f("title")[:200], "channel": f("channel")[:200], "dur": f("dur")[:16]}
                 was_open = YT.is_open()
                 YT.play_now(item) if a == "play" else YT.enqueue(item)
-                if not was_open:
-                    yt_open(front=False)
+                if not was_open and yt_open(front=False) == "opened":
+                    YT.mark_opening()   # niente seconda scheda mentre il browser la sta aprendo
             elif a in ("up", "rm"):
                 if not f("i").isdigit():
                     return self._send(400, "posizione non valida")
@@ -3783,6 +3783,8 @@ class Handler(BaseHTTPRequestHandler):
         st = YT.snapshot()
         if a == "open":
             st["open_r"] = yt_open(front=True)
+            if st["open_r"] == "opened":
+                YT.mark_opening()
         return self._send(200, json.dumps(st), "application/json")
 
     def do_POST(self):

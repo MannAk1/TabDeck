@@ -15,7 +15,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}\Z")
 _DATA_RE = re.compile(r"var ytInitialData = (\{.*?\});</script>", re.S)
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
@@ -23,6 +23,10 @@ _HEADERS = {
     "Cookie": "SOCS=CAI",   # salta la pagina del consenso ai cookie (UE)
 }
 MAX_TEXT = 200
+
+
+def valid_id(s):
+    return isinstance(s, str) and bool(ID_RE.match(s))
 
 
 class SearchError(Exception):
@@ -49,7 +53,7 @@ def parse_results(html, limit=20):
             v = o.get("videoRenderer")
             if isinstance(v, dict):
                 vid = v.get("videoId") or ""
-                if ID_RE.match(vid):
+                if valid_id(vid):
                     out.append({"id": vid, "title": _runs(v.get("title")), "channel": _runs(v.get("ownerText")),
                                 "dur": (v.get("lengthText") or {}).get("simpleText", "")[:16]})
                 continue
@@ -71,11 +75,15 @@ def search(q, timeout=8.0):
 
 
 # ---------------------------------------------------------------- player: coda e stato
-_YT_STATES = {1: "playing", 2: "paused", 3: "buffering", -1: "idle", 5: "idle", 0: "idle"}
+# -1 (non avviato) arriva a ogni caricamento: non cambia lo stato, altrimenti un "+" in quel momento sostituirebbe
+# il video che sta partendo. 5 = video pronto ma fermo (ripresa di un video in pausa).
+_YT_STATES = {1: "playing", 2: "paused", 3: "buffering", 5: "paused"}
 _SKIP_CODES = (100, 101, 150)   # video rimosso / non incorporabile: si passa al prossimo
 OPEN_S = 5.0                    # senza richieste della pagina per piu' di cosi' = player chiuso
 NOTICE_S = 8.0
 HISTORY_MAX = 20
+OPENING_S = 15.0                # il browser ci mette qualche secondo ad aprire la pagina: intanto conta come aperta
+_NO_PAGE = object()
 
 
 class Player:
@@ -96,10 +104,14 @@ class Player:
         self.last_seen = None
         self.notice = None
         self.out = []
+        self.page = _NO_PAGE        # id dell'ultima pagina del player che ha chiesto i comandi
+        self.old_pages = set()      # pagine piu' vecchie (ricaricate o aperte due volte): devono fermarsi
+        self.opening_until = 0.0
 
     # --- interni (lock gia' preso)
     def _open(self):
-        return self.last_seen is not None and self.clock() - self.last_seen < OPEN_S
+        now = self.clock()
+        return (self.last_seen is not None and now - self.last_seen < OPEN_S) or now < self.opening_until
 
     def _send(self, cmd):
         if cmd["a"] in ("load", "seek"):   # conta solo l'ultimo: tocchi rapidi non accodano caricamenti vecchi
@@ -194,22 +206,40 @@ class Player:
         with self.lock:
             return self._open()
 
-    # --- dalla pagina del player
-    def poll(self):
+    def mark_opening(self, secs=OPENING_S):
+        """La pagina e' appena stata aperta nel browser: per un po' non va riaperta."""
         with self.lock:
-            if not self._open():   # pagina (ri)aperta: riprende il video di prima da dove era
-                self.out = [c for c in self.out if c["a"] not in ("load", "seek", "vol")]
+            self.opening_until = self.clock() + secs
+
+    # --- dalla pagina del player
+    def poll(self, page=None):
+        """Comandi per la pagina. page = id casuale della pagina: una pagina nuova (aperta o ricaricata) riprende il
+        video di prima; le pagine piu' vecchie ricevono "stop", cosi' due schede non si dividono i comandi."""
+        with self.lock:
+            if page != self.page:
+                if page in self.old_pages:
+                    return [{"a": "stop"}]
+                if self.page is not _NO_PAGE:
+                    self.old_pages.add(self.page)
+                self.page = page
+                self.out = [c for c in self.out if c["a"] not in ("load", "seek", "vol", "play", "pause")]
                 pre = [{"a": "vol", "v": self.vol}] if self.vol != 100 else []
                 if self.cur is not None and self.state != "idle":
-                    pre.append({"a": "load", "id": self.cur["id"], "pos": float(self.pos)})
+                    cmd = {"a": "load", "id": self.cur["id"], "pos": float(self.pos)}
+                    if self.state == "paused":
+                        cmd["cue"] = True   # era in pausa: pronto ma fermo
+                    pre.append(cmd)
                 self.out = pre + self.out
             self.last_seen = self.clock()
+            self.opening_until = 0.0
             out, self.out = self.out, []
             return out
 
     def report(self, ev):
         with self.lock:
             t = ev.get("t")
+            if t in ("ended", "error", "blocked") and ev.get("id") and (self.cur is None or ev["id"] != self.cur["id"]):
+                return   # evento in ritardo del video precedente
             if t == "state":
                 self.state = _YT_STATES.get(ev.get("s"), self.state)
                 if self.state == "playing" and self.notice and self.notice.get("kind") == "blocked":
@@ -262,7 +292,8 @@ class _Handler(BaseHTTPRequestHandler):
         # un altro sito aperto nel browser non puo' comandare il player.
         u = urllib.parse.urlparse(self.path)
         k = (urllib.parse.parse_qs(u.query).get("k") or [""])[0]
-        if self.headers.get("Host") != "localhost:%d" % srv.server_address[1] or                 not hmac.compare_digest(k.encode(), srv.secret.encode()):
+        if self.headers.get("Host") != "localhost:%d" % srv.server_address[1] or \
+                not hmac.compare_digest(k.encode(), srv.secret.encode()):
             self._send(403, b"403 Forbidden")
             return None
         return u.path
@@ -275,7 +306,8 @@ class _Handler(BaseHTTPRequestHandler):
             with open(os.path.join(self.server.web_dir, "player.html"), "rb") as f:
                 return self._send(200, f.read(), "text/html; charset=utf-8")
         if path == "/pcmd":
-            return self._send(200, json.dumps(self.server.player.poll()).encode(), "application/json")
+            page = (urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("n") or [""])[0][:40]
+            return self._send(200, json.dumps(self.server.player.poll(page)).encode(), "application/json")
         self._send(404, b"404")
 
     def do_POST(self):

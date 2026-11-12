@@ -151,9 +151,65 @@ class PlayerTest(unittest.TestCase):
         self.c.t += 6
         self.assertFalse(self.p.is_open())
         self.assertEqual(self.p.snapshot()["state"], "closed")
-        cmds = self.p.poll()
+        cmds = self.p.poll("new-page")
         self.assertIn({"a": "load", "id": _it("a")["id"], "pos": 42.0}, cmds)
         self.assertTrue(self.p.is_open())
+
+    def test_reload_new_instance_resumes_immediately(self):
+        self.p.poll("a")
+        self._playing(_it("a"), pos=42)
+        self.c.t += 2
+        self.assertIn({"a": "load", "id": _it("a")["id"], "pos": 42.0}, self.p.poll("b"))
+
+    def test_old_instance_told_to_stop(self):
+        self.p.poll("a")
+        self.p.poll("b")
+        self.p.play_now(_it("x"))
+        self.assertEqual(self.p.poll("a"), [{"a": "stop"}])
+        self.assertEqual(self.p.poll("b")[0]["id"], _it("x")["id"])
+
+    def test_same_instance_long_gap_no_reload(self):
+        self.p.poll("a")
+        self.p.play_now(_it("a"))
+        self.p.poll("a")
+        self.p.report({"t": "state", "s": 2, "pos": 30, "dur": 200})
+        self.c.t += 60
+        self.assertEqual(self.p.poll("a"), [])
+
+    def test_resume_paused_cues_instead_of_playing(self):
+        self.p.poll("a")
+        self.p.play_now(_it("a"))
+        self.p.poll("a")
+        self.p.report({"t": "state", "s": 2, "pos": 30, "dur": 200})
+        self.assertIn({"a": "load", "id": _it("a")["id"], "pos": 30.0, "cue": True}, self.p.poll("b"))
+
+    def test_opening_grace(self):
+        p = youtube.Player(clock=self.c)
+        p.mark_opening()
+        self.assertTrue(p.is_open())
+        self.c.t += 16
+        self.assertFalse(p.is_open())
+
+    def test_stale_ended_ignored(self):
+        self._playing(_it("a"))
+        self.p.enqueue(_it("b"))
+        self.p.enqueue(_it("c"))
+        self.p.next()   # b
+        self.p.report({"t": "ended", "id": _it("a")["id"]})
+        self.assertEqual(self.p.snapshot()["cur"]["id"], _it("b")["id"])
+        self.p.report({"t": "error", "code": 150, "id": _it("a")["id"]})
+        self.assertEqual(self.p.snapshot()["cur"]["id"], _it("b")["id"])
+
+    def test_add_while_loading_queues(self):
+        self.p.play_now(_it("a"))
+        self.p.poll()
+        self.p.report({"t": "state", "s": -1, "pos": 0, "dur": 0})
+        self.assertFalse(self.p.enqueue(_it("b")))
+        self.assertEqual(self.p.snapshot()["cur"]["id"], _it("a")["id"])
+
+    def test_id_regex_rejects_trailing_newline(self):
+        self.assertFalse(youtube.valid_id("AAAAAAAAAAA" + chr(10)))
+        self.assertTrue(youtube.valid_id("5NV6Rdv1a3I"))
 
     def test_volume_and_seek_clamped(self):
         self._playing(_it("a"), dur=200)

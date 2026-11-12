@@ -12,7 +12,9 @@ html,body{margin:0;height:100%;background:#000;color:#9aa;font:13px system-ui,sa
    e riferisce cosa sta facendo. Host "nocookie" + origin: con l'host normale i video musicali danno errore 150. */
 var K = new URLSearchParams(location.search).get("k") || "", player = null, ready = false, curId = null, lastRep = 0;
 /* avvio bloccato: dopo un caricamento il player torna "non avviato" senza mai suonare e senza errori */
-var loadAt = 0, played = false, buf = false;
+var loadAt = 0, played = false, buf = false, stopped = false;
+/* id di questa pagina: TabDeck da' i comandi solo alla pagina piu' recente; le altre ricevono "stop" */
+var N = Math.random().toString(36).slice(2, 12);
 function setS(t) { document.getElementById("s").textContent = t; }
 function rep(o) {
   var x = new XMLHttpRequest();
@@ -30,7 +32,12 @@ function state(s) {
   rep(o); lastRep = Date.now();
 }
 function run(c) {
-  if (c.a === "load") { curId = c.id; loadAt = Date.now(); played = false; buf = false; player.loadVideoById({videoId: c.id, startSeconds: c.pos || 0}); }
+  if (c.a === "stop") {
+    stopped = true; try { player.pauseVideo(); } catch (e) {}
+    setS("Il player e' aperto in un'altra scheda: puoi chiudere questa"); return;
+  }
+  if (c.a === "load" && c.cue) { curId = c.id; loadAt = 0; player.cueVideoById({videoId: c.id, startSeconds: c.pos || 0}); }
+  else if (c.a === "load") { curId = c.id; loadAt = Date.now(); played = false; buf = false; player.loadVideoById({videoId: c.id, startSeconds: c.pos || 0}); }
   else if (c.a === "play") { player.playVideo(); }
   else if (c.a === "pause") { player.pauseVideo(); }
   else if (c.a === "seek") { player.seekTo(c.s, true); }
@@ -38,7 +45,8 @@ function run(c) {
 }
 function poll() {
   var x = new XMLHttpRequest();
-  x.open("GET", "/pcmd?k=" + encodeURIComponent(K));
+  if (stopped) { return; }
+  x.open("GET", "/pcmd?k=" + encodeURIComponent(K) + "&n=" + N);
   x.timeout = 4000;
   x.onload = function () {
     if (x.status === 200) {
@@ -57,17 +65,17 @@ function onYouTubeIframeAPIReady() {
     events: {
       onReady: function () { ready = true; setS("TabDeck: pronto"); poll(); },
       onStateChange: function (e) {
-        if (e.data === 0) { rep({t: "ended"}); return; }
+        if (e.data === 0) { rep({t: "ended", id: curId}); return; }
         if (e.data === 1) { played = true; }
         if (e.data === 3) { buf = true; }
         if (e.data === -1 && loadAt && buf && !played && Date.now() - loadAt < 8000) {
-          loadAt = 0; rep({t: "blocked"});
+          loadAt = 0; rep({t: "blocked", id: curId});
           setS("Il browser blocca l'avvio automatico: consenti audio e video per " + location.host); return;
         }
         state(e.data);
         try { var d = player.getVideoData(); if (d && d.title) { setS(d.title); } } catch (er) {}
       },
-      onError: function (e) { rep({t: "error", code: e.data}); }
+      onError: function (e) { rep({t: "error", code: e.data, id: curId}); }
     }
   });
 }
