@@ -293,6 +293,7 @@ ALWAYS = ["reinforce", "resupply", "sos", "eagle_rearm"]
 NAV = [
     ("grid", "Generale", "Volume, app e scorciatoie", "grid"),
     ("mix", "Audio", "Brano in riproduzione e volume per app", "music"),
+    ("yt", "YouTube", "Cerca e scegli video e musica", "play"),
     ("dc", "Discord", "Server, canali vocali e chiamata", "headset"),
     ("pad", "Touchpad", "Mouse e tastiera del PC", "mouse"),
     ("mon", "Monitor", "CPU, GPU, memoria, rete e disco", "chart"),

@@ -479,6 +479,57 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
 .kico div{display:flex;align-items:center;justify-content:center;width:52px;padding:0}
 .kico svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #kebtns{margin-top:14px}
+/* YouTube: risultati a sinistra, player e coda a destra (vicino alla mano) */
+#yt{padding:8px;gap:10px}
+#ytl{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+#ytsb{flex:0 0 52px;display:flex;gap:8px}
+#ytq{flex:1;min-width:0;height:52px;padding:0 12px;font:inherit;font-size:17px;color:var(--text);background:var(--panel2);border:0;border-radius:0;
+ box-shadow:inset 0 0 0 1px var(--line);outline:none;-webkit-appearance:none}
+#ytq:focus{box-shadow:inset 0 0 0 2px var(--amber)}
+#ytgo{flex:0 0 110px;height:52px;--c:var(--media)}
+#ytgo:after,#ytctl .b:after,#ytobtn:after{display:none}
+#ytres,#ytqueue{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:4px;
+ will-change:transform;background:var(--bg)}
+.ytrw{flex:0 0 76px;display:flex;align-items:stretch;gap:4px}
+.ytrow{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:4px;border:0;outline:none;text-align:left;color:var(--text);font-family:inherit;background:var(--panel)}
+.ytrow.on,.ytadd.on,.ytsm.on,.ytqb.on{background:#3a3f2a}
+.ytth{position:relative;flex:0 0 120px;width:120px;height:68px;background:var(--panel2);overflow:hidden}
+.ytth img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
+.ytth .ytd{position:absolute;right:3px;bottom:3px;padding:0 4px;font-size:11px;line-height:16px;color:#fff;background:rgba(0,0,0,.8)}
+.ytx{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.ytx b{font-size:15px;line-height:1.2;max-height:36px;overflow:hidden}
+.ytx span{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ytadd{flex:0 0 60px;border:0;outline:none;font-family:inherit;font-weight:bold;font-size:28px;line-height:1;color:var(--media);background:var(--panel)}
+#yttabs{display:none}
+#ytr{flex:0 0 310px;display:flex;flex-direction:column;gap:8px;padding:8px 10px 10px;min-height:0;background:rgba(0,0,0,.25);box-shadow:inset 0 0 0 1px var(--line)}
+#ytoff{display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;flex:0 0 auto;padding:10px 0}
+#ytr.closed #ytoff{display:flex}
+#ytobtn{width:100%;height:80px;flex:0 0 80px;--c:var(--media)}
+#ytnow{flex:0 0 auto;display:flex;align-items:center;gap:10px;min-height:56px}
+#ytpic{position:relative;flex:0 0 96px;width:96px;height:54px;background:var(--panel2);overflow:hidden}
+#ytpic img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
+#ytnt{flex:1;min-width:0}
+#yttitle{font-size:15px;font-weight:bold;line-height:1.2;max-height:36px;overflow:hidden;color:var(--text)}
+#ytch{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:15px}
+#ytnote{display:none;flex:0 0 auto;align-items:center;gap:8px;padding:6px 8px;font-size:13px;color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber2)}
+#ytnote.show{display:flex}
+#ytnmsg{flex:1;min-width:0}
+.ytsm{flex:0 0 auto;height:34px;padding:0 10px;border:0;outline:none;font-family:inherit;font-weight:bold;font-size:12px;letter-spacing:.05em;color:var(--text);background:var(--panel2)}
+#ytbar,#ytvolr{flex:0 0 40px;display:flex;align-items:center;gap:8px}
+#ytbar .mono{flex:0 0 40px;font-size:12px;color:var(--dim);text-align:center}
+#ytseek,#ytvol{-webkit-appearance:none;flex:1;min-width:0;height:40px;background:transparent;margin:0}
+#ytseek::-webkit-slider-runnable-track,#ytvol::-webkit-slider-runnable-track{height:6px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
+#ytseek::-webkit-slider-thumb,#ytvol::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;margin-top:-11px;border-radius:50%;background:var(--media);border:0}
+#ytvolv{flex:0 0 32px;font-size:12px;color:var(--dim);text-align:right}
+#ytctl{flex:0 0 60px;display:flex;gap:8px}
+#ytctl .b{flex:1;--c:var(--media)}
+#ytplay .v2,#ytplay.pl .v1{display:none}
+#ytplay.pl .v2{display:flex}
+#ytr.closed #ytnow,#ytr.closed #ytbar,#ytr.closed #ytctl,#ytr.closed #ytvolr{opacity:.35}
+.ytqr{flex:0 0 48px;display:flex;align-items:center;gap:6px;padding-left:8px;background:var(--panel)}
+.ytqt{flex:1;min-width:0;font-size:13px;line-height:1.2;max-height:32px;overflow:hidden;color:var(--text)}
+.ytqb{flex:0 0 44px;height:44px;border:0;outline:none;font-family:inherit;font-weight:bold;font-size:18px;color:var(--dim);background:var(--panel2)}
+
 /* ================================================================================================
    TELEFONO. Tutte le regole per i telefoni stanno qui, dentro due media query: il tablet (1280x800
    orizzontale) non corrisponde a nessuna delle due e resta identico.
@@ -632,3 +683,19 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  #settabs #setclose{flex:0 0 38px;height:38px;line-height:38px}
  #kedit{right:170px}
 }
+/* YouTube sul telefono in verticale: player in alto, poi Risultati / Coda a schede */
+@media (max-width:600px){
+ #yt{flex-direction:column;gap:6px}
+ #ytr{order:1;flex:0 0 auto;padding:6px 8px 8px;gap:6px}
+ #yttabs{order:2;display:flex;flex:0 0 40px;gap:4px}
+ #ytl{order:3;flex:1;min-height:0}
+ .ytt{flex:1;border:0;outline:none;font-family:inherit;font-weight:bold;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);background:var(--panel)}
+ .ytt.sel{color:var(--text);box-shadow:inset 0 -3px 0 var(--media)}
+ #ytqh,#ytqueue{display:none}
+ #yt.vq #ytl{display:none}
+ #yt.vq #ytr{flex:1}
+ #yt.vq #ytqueue{display:flex}
+ .ytth{flex-basis:96px;width:96px;height:54px}
+ .ytrw{flex-basis:62px}
+}
+#ytnote .ytsm.na{display:none}

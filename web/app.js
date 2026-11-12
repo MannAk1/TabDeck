@@ -90,6 +90,12 @@ function activate(el, alt) {
   if (el.hasAttribute("data-dcc")) { dcJoin(el); return; }
   if (el.hasAttribute("data-dcu")) { dcUser(el.getAttribute("data-dcu")); return; }
   if (el.hasAttribute("data-dca")) { dcAct(el.getAttribute("data-dca")); return; }
+  if (el.hasAttribute("data-yta")) { ytBtn(el.getAttribute("data-yta"), el); return; }
+  if (el.hasAttribute("data-ytp")) { ytPick(el, +el.getAttribute("data-ytp"), false); return; }
+  if (el.hasAttribute("data-ytq")) { ytPick(el, +el.getAttribute("data-ytq"), true); return; }
+  if (el.hasAttribute("data-ytup")) { ytAct("up", "i=" + el.getAttribute("data-ytup")); return; }
+  if (el.hasAttribute("data-ytrm")) { ytAct("rm", "i=" + el.getAttribute("data-ytrm")); return; }
+  if (el.hasAttribute("data-ytv")) { ytView(el.getAttribute("data-ytv")); return; }
   if (!alt && !editMode) { var ra = runOf(el); if (ra) { runTap(el, ra); return; } }
   if (!alt && el.getAttribute("data-id") === "discord" && !el.closest(".gpop")) { showTab("dc"); return; }   /* anche con Discord chiuso */
   if (el.hasAttribute("data-grp")) { openGroup(el.getAttribute("data-grp")); return; }
@@ -1361,6 +1367,128 @@ function loadMon() {
   x.send();
 }
 setInterval(function () { if (curTab === "mon" && !document.hidden) { loadMon(); } }, 1000);
+/* ------------------------------------------------------------ YouTube: cerca dal tablet, suona nel browser del PC */
+var ytPane = document.getElementById("yt"), ytQ = document.getElementById("ytq"), ytRes = document.getElementById("ytres"),
+  ytQueue = document.getElementById("ytqueue"), ytR = document.getElementById("ytr"), ytSeek = document.getElementById("ytseek"),
+  ytVol = document.getElementById("ytvol"), ytPlay = document.getElementById("ytplay"), ytNote = document.getElementById("ytnote");
+var YTR = [], YTS = null, ytQKey = "", ytCurKey = "", ytSeekDrag = false, ytVolDrag = false, ytBusy = false;
+function ytFmt(s) { s = Math.max(0, Math.floor(s || 0)); var m = Math.floor(s / 60); s = s % 60; return m + ":" + (s < 10 ? "0" : "") + s; }
+function ytThumb(id) { return "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg"; }
+function ytItem(it) {
+  return "id=" + encodeURIComponent(it.id) + "&title=" + encodeURIComponent(it.title) + "&channel=" + encodeURIComponent(it.channel) +
+    "&dur=" + encodeURIComponent(it.dur);
+}
+function ytSearch() {
+  var q = ytQ.value.replace(/^\s+|\s+$/g, "");
+  if (!q || ytBusy) { return; }
+  ytQ.blur(); ytBusy = true;
+  ytRes.innerHTML = '<div class="dcempty">Cerco&hellip;</div>';
+  dcGet("/yts?q=" + encodeURIComponent(q), function (code, j) {
+    ytBusy = false;
+    if (code !== 200 || !j) {
+      ytRes.innerHTML = '<div class="dcempty">' + (code === 0 ? "PC non raggiungibile" : "Ricerca non riuscita") + "</div>";
+      return;
+    }
+    YTR = j.r || [];
+    ytRes.innerHTML = YTR.length ? YTR.map(function (it, i) {
+      return '<div class="ytrw"><button class="ytrow" data-ytp="' + i + '" data-n="' + esc(it.title) + '"><span class="ytth"><img src="' +
+        ytThumb(it.id) + '" alt="">' + (it.dur ? '<span class="ytd mono">' + esc(it.dur) + "</span>" : "") +
+        '</span><span class="ytx"><b>' + esc(it.title) + "</b><span>" + esc(it.channel) + "</span></span></button>" +
+        '<button class="ytadd" data-ytq="' + i + '" data-n="+ coda">+</button></div>';
+    }).join("") : '<div class="dcempty">Nessun risultato</div>';
+    ytRes.scrollTop = 0;
+    [].forEach.call(ytRes.querySelectorAll(".ytrow, .ytadd"), bind);
+    if (ytPane.classList.contains("vq")) { ytView("res"); }
+  });
+}
+ytQ.addEventListener("keydown", function (e) { if (e.keyCode === 13) { e.preventDefault(); ytSearch(); } }, false);
+function ytAct(a, extra, cb) {
+  post("/yt", "a=" + a + (extra ? "&" + extra : ""), function (code, txt) {
+    var j = null; try { j = JSON.parse(txt); } catch (e) {}
+    if (code === 200 && j) { paintYt(j); }
+    else { status("err", code === 0 ? "PC non raggiungibile" : "Errore " + code); }
+    if (cb) { cb(code, j); }
+  });
+}
+function ytPick(el, i, add) {
+  var it = YTR[i]; if (!it) { return; }
+  flash(el, "ok");
+  ytAct(add ? "add" : "play", ytItem(it), function (code) {
+    if (code === 200) { status("ok", (add ? "+ in coda: " : "▶ ") + it.title); }
+  });
+}
+function ytBtn(a, el) {
+  if (a === "search") { ytSearch(); return; }
+  if (a === "web") {
+    var n = YTS && YTS.notice;
+    if (n && n.kind !== "blocked") { ytAct("web", "id=" + encodeURIComponent(n.id)); status("ok", "Aperto su YouTube"); }
+    return;
+  }
+  if (a === "open") {
+    ytAct("open", "", function (code, j) {
+      if (code !== 200 || !j) { return; }
+      if (j.open_r === "unavailable") { status("err", "Player non disponibile sul PC"); } else { status("ok", "YouTube sul PC"); }
+    });
+    return;
+  }
+  ytAct(a);
+}
+function ytView(v) {
+  cls(ytPane, "vq", v === "queue");
+  [].forEach.call(document.querySelectorAll(".ytt"), function (t) { cls(t, "sel", t.getAttribute("data-ytv") === v); });
+}
+[].forEach.call(document.querySelectorAll(".ytt, .ytsm"), bind);
+ytSeek.addEventListener("touchstart", function () { ytSeekDrag = true; }, {passive: true});
+ytSeek.addEventListener("input", function () { ytSeekDrag = true; setText(document.getElementById("ytpos"), ytFmt(+ytSeek.value)); }, false);
+ytSeek.addEventListener("change", function () { ytSeekDrag = false; ytAct("seek", "s=" + ytSeek.value); }, false);
+ytVol.addEventListener("touchstart", function () { ytVolDrag = true; }, {passive: true});
+ytVol.addEventListener("input", function () { ytVolDrag = true; setText(document.getElementById("ytvolv"), ytVol.value); }, false);
+ytVol.addEventListener("change", function () { ytVolDrag = false; ytAct("vol", "v=" + ytVol.value); }, false);
+function ytNoteText(n) {
+  if (n.kind === "blocked") {
+    return "Il browser del PC blocca l'avvio automatico: consentilo per il player " +
+      "(Firefox: Impostazioni › Privacy › Riproduzione automatica › localhost:" + ((+location.port || 8765) + 100) + ")";
+  }
+  return "«" + n.title + "» non riproducibile qui";
+}
+function paintYt(s) {
+  YTS = s;
+  var c = s.cur, open = !!s.open;
+  cls(ytR, "closed", !open);
+  var ck = c ? c.id + "|" + c.title : "";
+  if (ck !== ytCurKey) {
+    ytCurKey = ck;
+    document.getElementById("ytpic").innerHTML = c ? '<img src="' + ytThumb(c.id) + '" alt="">' : "";
+  }
+  setText(document.getElementById("yttitle"), c ? c.title : "Niente in riproduzione");
+  setText(document.getElementById("ytch"), c ? c.channel + (s.state === "ad" ? " · pubblicità" : s.state === "buffering" ? " · carico…" : "") : "");
+  cls(ytPlay, "pl", s.state === "playing" || s.state === "ad" || s.state === "buffering");
+  if (!ytSeekDrag) {
+    var d = String(Math.max(1, Math.floor(s.dur || 0)));
+    if (ytSeek.max !== d) { ytSeek.max = d; }
+    var pv = String(Math.floor(s.pos || 0)); if (ytSeek.value !== pv) { ytSeek.value = pv; }
+    setText(document.getElementById("ytpos"), ytFmt(s.pos));
+  }
+  setText(document.getElementById("ytdur"), ytFmt(s.dur));
+  if (!ytVolDrag) { var vv = String(s.vol); if (ytVol.value !== vv) { ytVol.value = vv; } setText(document.getElementById("ytvolv"), s.vol); }
+  var n = s.notice;
+  cls(ytNote, "show", !!n);
+  if (n) { setText(document.getElementById("ytnmsg"), ytNoteText(n)); cls(document.getElementById("ytweb"), "na", n.kind === "blocked"); }
+  setText(document.getElementById("ytqh"), "Coda (" + s.queue.length + ")");
+  setText(document.querySelector('.ytt[data-ytv="queue"]'), "Coda (" + s.queue.length + ")");
+  var qk = JSON.stringify(s.queue.map(function (x) { return x.id + x.title; }));
+  if (qk !== ytQKey && !ytQueue.querySelector(".on")) {
+    ytQKey = qk;
+    ytQueue.innerHTML = s.queue.length ? s.queue.map(function (it, i) {
+      return '<div class="ytqr"><span class="ytqt">' + (i + 1) + ". " + esc(it.title) + "</span>" +
+        (i > 0 ? '<button class="ytqb" data-ytup="' + i + '" data-n="su">&uarr;</button>' : "") +
+        '<button class="ytqb" data-ytrm="' + i + '" data-n="togli">&times;</button></div>';
+    }).join("") : '<div class="dcempty">Coda vuota: tocca + su un risultato</div>';
+    [].forEach.call(ytQueue.getElementsByClassName("ytqb"), bind);
+  }
+}
+function ytPoll() { dcGet("/yt", function (code, j) { if (code === 200 && j) { paintYt(j); } }); }
+setInterval(function () { if (curTab === "yt" && !document.hidden) { ytPoll(); } }, 1000);
 function showTab(n) {
   var ps = document.getElementsByClassName("pane"), ts = document.getElementsByClassName("tab"), i;
   for (i = 0; i < ps.length; i++) { cls(ps[i], "show", ps[i].id === n); }
@@ -1372,7 +1500,8 @@ function showTab(n) {
   if (n === "dc") { dcGuildAt = 0; dcPoll(); }
   if (n === "mix") { loadAudio(); }
   if (n === "hd2") { cdSig = ""; paintCd(); }
-  if (n === "mon") { MH = null; loadMon(); }   /* storico fresco a ogni apertura */
+  if (n === "mon") { MH = null; loadMon(); }
+  if (n === "yt") { ytPoll(); }   /* storico fresco a ogni apertura */
 }
 /* menu sezioni: il pulsante in basso apre l'elenco; ogni riquadro porta alla sua sezione */
 var navPop = document.getElementById("navpop");
