@@ -352,6 +352,7 @@ ICONS = {
 import collections
 import ctypes
 import devices
+import youtube
 import difflib
 import hashlib
 import hmac
@@ -3666,6 +3667,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, "404")
         if u.path == "/layout":
             return self._send(200, json.dumps(layout_info()), "application/json")
+        if u.path == "/yts":    # ricerca YouTube dal tablet
+            yq = (q.get("q") or [""])[0].strip()
+            if not yq or len(yq) > 200:
+                return self._send(400, "ricerca non valida")
+            try:
+                res = youtube.search(yq)
+            except youtube.SearchError as e:
+                self.log_message("ERRORE ricerca YouTube: %s", e)
+                return self._send(502, json.dumps({"err": "Ricerca non riuscita"}), "application/json")
+            return self._send(200, json.dumps({"r": res}), "application/json")
+        if u.path == "/yt":     # stato del player YouTube (ogni secondo mentre la sezione e' aperta)
+            return self._send(200, json.dumps(YT.snapshot()), "application/json")
         if u.path == "/dc":     # sezione Discord: stato + chiamata attuale (ogni 0,6 s mentre e' aperta)
             return self._send(200, json.dumps({"st": DISCORD.state(), "vc": DISCORD.vc_state()}), "application/json")
         if u.path in ("/dcguilds", "/dcch"):
@@ -3712,6 +3725,45 @@ class Handler(BaseHTTPRequestHandler):
                         "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'"})
         self._send(404, "404")
 
+    def _yt(self, form):
+        """Comandi del player YouTube dal tablet."""
+        f = lambda k: (form.get(k) or [""])[0]
+        a, vid = f("a"), f("id")
+        if a in ("play", "add", "web") and not youtube.ID_RE.match(vid):
+            return self._send(400, "video non valido")
+        try:
+            if a in ("play", "add"):
+                item = {"id": vid, "title": f("title")[:200], "channel": f("channel")[:200], "dur": f("dur")[:16]}
+                was_open = YT.is_open()
+                YT.play_now(item) if a == "play" else YT.enqueue(item)
+                if not was_open:
+                    yt_open(front=False)
+            elif a in ("up", "rm"):
+                if not f("i").isdigit():
+                    return self._send(400, "posizione non valida")
+                (YT.move_up if a == "up" else YT.remove)(int(f("i")))
+            elif a == "seek":
+                sv = float(f("s"))
+                if sv != sv or sv in (float("inf"), float("-inf")):
+                    raise ValueError
+                YT.seek(sv)
+            elif a == "vol":
+                if not f("v").isdigit():
+                    return self._send(400, "volume non valido")
+                YT.volume(int(f("v")))
+            elif a in ("next", "prev", "toggle"):
+                getattr(YT, a)()
+            elif a == "web":
+                os.startfile("https://www.youtube.com/watch?v=" + vid)
+            elif a != "open":
+                return self._send(400, "azione non valida")
+        except ValueError:
+            return self._send(400, "valore non valido")
+        st = YT.snapshot()
+        if a == "open":
+            st["open_r"] = yt_open(front=True)
+        return self._send(200, json.dumps(st), "application/json")
+
     def do_POST(self):
         if not self._host_ok():
             return self._send(403, "403 Forbidden")
@@ -3722,7 +3774,7 @@ class Handler(BaseHTTPRequestHandler):
         if st != "ok":
             return self._send(403, json.dumps({st: True}), "application/json")
         if u.path not in ("/press", "/hd2sync", "/loadout", "/settings", "/volume", "/focus", "/appvol", "/media",
-                          "/mouse", "/type", "/key", "/mic", "/discord", "/winact", "/layout", "/restart", "/update"):
+                          "/mouse", "/type", "/key", "/mic", "/discord", "/winact", "/layout", "/restart", "/update", "/yt"):
             return self._send(404, "404")
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -3730,11 +3782,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, "400")
         if n < 0:
             return self._send(400, "400")
-        if n > (8192 if u.path == "/type" else 1024):
+        if n > (8192 if u.path == "/type" else 4096 if u.path == "/yt" else 1024):
             return self._send(413, "413")
         form = parse_qs(self.rfile.read(n).decode("utf-8", "replace"), keep_blank_values=True)
         if u.path in ("/mouse", "/type", "/key"):
             return self._input(u.path, form)
+        if u.path == "/yt":
+            return self._yt(form)
         if u.path == "/hd2sync":
             try:
                 ids, codes = sync_loadout()
@@ -4027,7 +4081,7 @@ class Handler(BaseHTTPRequestHandler):
     do_DELETE = do_PATCH = do_PUT
 
     def log_message(self, fmt, *args):
-        if getattr(self, "path", "").startswith(("/ping", "/icon/", "/appicon/", "/volume", "/windows", "/state", "/audio", "/cover/", "/appvol", "/mouse", "/type", "/stats", "/dc", "/discord")) and len(args) > 1 and str(args[1]) == "200":
+        if getattr(self, "path", "").startswith(("/ping", "/icon/", "/appicon/", "/volume", "/windows", "/state", "/audio", "/cover/", "/appvol", "/mouse", "/type", "/stats", "/dc", "/discord", "/yt")) and len(args) > 1 and str(args[1]) == "200":
             return  # ping e icone riusciti non intasano il log
         msg = (fmt % args).replace(self.server.token, "***")  # mai il token nei log
         msg = _LOG_TOKEN_RE.sub(r"\1***", msg)               # nemmeno quelli vecchi o sbagliati
@@ -4085,6 +4139,45 @@ def start_server(host, token):
     th = threading.Thread(target=srv.serve_forever, daemon=True)
     th.start()
     return srv, th
+
+
+YT = youtube.Player()   # player YouTube: la pagina gira nel browser del PC, il tablet la comanda
+YT_URL = None
+
+
+def _ylog(msg):
+    print("[%s] YouTube: %s" % (time.strftime("%H:%M:%S"), msg))
+
+
+def yt_start():
+    """Server locale della pagina del player (solo 127.0.0.1, porta = PORT + 100)."""
+    global YT_URL
+    port = PORT + 100
+    try:
+        _srv, secret = youtube.start_player_server(port, YT, WEB_DIR)
+    except OSError as e:
+        _ylog("porta %d occupata, player non disponibile (%s)" % (port, e))
+        return
+    YT_URL = youtube.player_url(port, secret)
+
+
+def yt_open(front):
+    """Apre la pagina del player nel browser predefinito, o (front) porta davanti quella gia' aperta."""
+    if YT_URL is None:
+        return "unavailable"
+    if YT.is_open():
+        if not front:
+            return "open"
+        try:
+            for w in list_windows():
+                if w.get("t", "").startswith("TabDeck YouTube"):
+                    focus_window(int(w["h"]))
+                    return "front"
+        except (OSError, ValueError) as e:
+            _ylog("finestra del player non trovata: %s" % e)
+        return "open"
+    os.startfile(YT_URL)
+    return "opened"
 
 
 STATUS = {"state": None, "ip": None, "port": None, "adb": []}   # letto dalla finestra sul PC
@@ -4313,6 +4406,7 @@ def main():
             if src:
                 app_icon(icon_key(src))
     threading.Thread(target=warm_icons, daemon=True).start()
+    yt_start()
     threading.Thread(target=_ctrl_watch, daemon=True).start()
     threading.Thread(target=_remap_thread, daemon=True).start()
     DISCORD.start()
