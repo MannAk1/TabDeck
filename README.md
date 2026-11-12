@@ -79,6 +79,11 @@ Se avevi installato dallo zip: doppio clic su `disinstalla.bat`, poi cancella la
 - **Helldivers 2**: la lettura dello schermo (Sync dell'equipaggiamento, ricariche) è tarata sul gioco
   **in italiano a 1920×1080**. Con altre lingue o risoluzioni i pulsanti degli stratagemmi funzionano,
   la lettura automatica probabilmente no.
+- **YouTube**: cerca e scegli video e musica dal telefono; suonano in una finestra "TabDeck YouTube" del browser
+  del PC, che si apre da sola la prima volta e poi resta dietro (anche mentre giochi). La prima volta il browser
+  può bloccare l'avvio automatico: in Firefox vai in *Impostazioni → Privacy e sicurezza → Permessi →
+  Riproduzione automatica → Impostazioni…* e consenti audio e video per `http://localhost:8865`.
+  Alcuni video non si possono incorporare: per quelli TabDeck propone "Apri su YouTube".
 - **Discord**: serve una tua "app" Discord (gratis, 2 minuti):
   1. vai su <https://discord.com/developers/applications> → **New Application** (nome a piacere);
   2. **OAuth2** → **Redirects** → aggiungi `http://localhost` → salva;

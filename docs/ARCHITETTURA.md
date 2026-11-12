@@ -121,6 +121,7 @@ della tastiera. Tutta la difesa serve a che **solo il tablet** abbia il token e 
 | File | Percorsi serviti solo da nomi validati (regex): niente `../`. | `/icon/`, `/appicon/`, `/cover/` |
 | Log | Il token viene sostituito con `***`; il testo digitato non viene mai scritto. | `log_message`, `/type` |
 | Segreti | `data/` esclusa da git; i segreti Discord restano nel profilo utente. | `.gitignore` |
+| YouTube | Il server del player ascolta solo su `127.0.0.1:<porta+100>`, accetta solo `Host: localhost:<porta>` e un segreto casuale nell'URL della pagina (confronto a tempo costante): altri siti aperti nel browser del PC non possono comandarlo. Id video validati con regex; titoli tagliati a 200 caratteri. | `youtube.py` (`_Handler`), `Handler._yt` |
 | Discord | Scambio del token OAuth solo con `https://discord.com`; accesso revocabile (⚙ -> Discord -> Scollega). | `Discord._token_req` |
 
 ### Rischi accettati (e perché)
@@ -207,6 +208,23 @@ pubblicati non ci siano token, segreti Discord o percorsi personali, poi tag + p
 - Canale vocale: `GET_SELECTED_VOICE_CHANNEL` + iscrizione agli eventi (chi entra/esce, chi parla) solo
   per il canale attuale; si spostano quando cambi canale.
 - Limite di Discord: l'RPC **non** permette di leggere o scrivere la chat.
+
+---
+
+## 4b. YouTube (`youtube.py`, `web/player.html`)
+
+- **Ricerca senza chiave**: `search()` scarica `youtube.com/results` (cookie `SOCS=CAI` per saltare il consenso UE)
+  e legge il JSON `ytInitialData` (`parse_results`). Se YouTube cambia la pagina, la ricerca va sistemata lì.
+- **Player**: una pagina di TabDeck aperta nel **browser predefinito** del PC (`yt_open` -> `os.startfile`) su
+  `http://localhost:<porta+100>/player?k=<segreto>` (8865 per il proprietario). Usa il player incorporato
+  **nocookie** con `origin`: con l'host normale i video musicali ufficiali danno errore 150.
+- **Comandi**: la pagina chiede `/pcmd` ogni 0,5 s e riferisce lo stato a `/pev`; il tablet parla solo con il
+  server principale (`GET /yts`, `GET /yt`, `POST /yt`). Stato e coda in memoria (`youtube.Player`). Cambiare
+  video non porta mai il browser davanti: solo la prima apertura della finestra.
+- **Autoplay**: Firefox di base blocca l'audio che parte da solo. Va consentito una volta per
+  `http://localhost:8865` (Impostazioni > Privacy > Riproduzione automatica); la pagina se ne accorge
+  (`{"t":"blocked"}`) e il tablet mostra come fare.
+- Video non incorporabili (errori 100/101/150): saltati, con "Apri su YouTube" sul tablet.
 
 ---
 
