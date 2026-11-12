@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TabDeck YouTube</title>
+<style>
+html,body{margin:0;height:100%;background:#000;color:#9aa;font:13px system-ui,sans-serif;overflow:hidden}
+#p{position:absolute;left:0;top:0;right:0;bottom:22px;width:100%;height:calc(100% - 22px)}
+#s{position:absolute;left:0;right:0;bottom:0;height:22px;line-height:22px;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style></head>
+<body><div id="p"></div><div id="s">TabDeck: in attesa di un video dal tablet</div>
+<script>
+/* Pagina del player di TabDeck: gira solo su http://localhost. Chiede i comandi a TabDeck ogni mezzo secondo
+   e riferisce cosa sta facendo. Host "nocookie" + origin: con l'host normale i video musicali danno errore 150. */
+var K = new URLSearchParams(location.search).get("k") || "", player = null, ready = false, curId = null, lastRep = 0;
+function setS(t) { document.getElementById("s").textContent = t; }
+function rep(o) {
+  var x = new XMLHttpRequest();
+  x.open("POST", "/pev?k=" + encodeURIComponent(K));
+  x.setRequestHeader("Content-Type", "application/json");
+  x.send(JSON.stringify(o));
+}
+function isAd() {
+  /* durante una pubblicita' il player riproduce un video diverso da quello caricato */
+  try { var d = player.getVideoData(); return !!(d && d.video_id && curId && d.video_id !== curId); } catch (e) { return false; }
+}
+function state(s) {
+  var o = {t: "state", s: s, ad: s === 1 && isAd()};
+  try { o.pos = player.getCurrentTime() || 0; o.dur = player.getDuration() || 0; } catch (e) {}
+  rep(o); lastRep = Date.now();
+}
+function run(c) {
+  if (c.a === "load") { curId = c.id; player.loadVideoById({videoId: c.id, startSeconds: c.pos || 0}); }
+  else if (c.a === "play") { player.playVideo(); }
+  else if (c.a === "pause") { player.pauseVideo(); }
+  else if (c.a === "seek") { player.seekTo(c.s, true); }
+  else if (c.a === "vol") { player.setVolume(c.v); if (c.v > 0) { player.unMute(); } }
+}
+function poll() {
+  var x = new XMLHttpRequest();
+  x.open("GET", "/pcmd?k=" + encodeURIComponent(K));
+  x.timeout = 4000;
+  x.onload = function () {
+    if (x.status === 200) {
+      var cmds = []; try { cmds = JSON.parse(x.responseText); } catch (e) {}
+      for (var i = 0; i < cmds.length; i++) { try { run(cmds[i]); } catch (e) {} }
+      setTimeout(poll, 500);
+    } else { setS("TabDeck ha rifiutato la pagina: riaprila dal tablet"); setTimeout(poll, 5000); }
+  };
+  x.onerror = x.ontimeout = function () { setS("TabDeck non risponde"); setTimeout(poll, 2000); };
+  x.send();
+}
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player("p", {
+    host: "https://www.youtube-nocookie.com",
+    playerVars: {autoplay: 1, rel: 0, playsinline: 1, origin: location.origin},
+    events: {
+      onReady: function () { ready = true; setS("TabDeck: pronto"); poll(); },
+      onStateChange: function (e) {
+        if (e.data === 0) { rep({t: "ended"}); return; }
+        state(e.data);
+        try { var d = player.getVideoData(); if (d && d.title) { setS(d.title); } } catch (er) {}
+      },
+      onError: function (e) { rep({t: "error", code: e.data}); }
+    }
+  });
+}
+setInterval(function () {   /* posizione ogni secondo mentre suona */
+  if (ready && Date.now() - lastRep >= 900) { try { var s = player.getPlayerState(); if (s === 1 || s === 3) { state(s); } } catch (e) {} }
+}, 1000);
+var t = document.createElement("script"); t.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(t);
+</script></body></html>

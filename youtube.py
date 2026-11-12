@@ -4,12 +4,16 @@ La pagina del player (web/player.html) gira nel browser predefinito del PC su ht
 player incorporato "nocookie" di YouTube: con l'host normale i video musicali ufficiali danno errore 150.
 Il tablet non parla mai con questo server: comanda il player tramite il server principale di TabDeck.
 """
+import hmac
 import json
+import os
 import re
+import secrets
 import threading
 import time
 import urllib.parse
 import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 _DATA_RE = re.compile(r"var ytInitialData = (\{.*?\});</script>", re.S)
@@ -221,3 +225,78 @@ class Player:
                     self.notice = {"msg": "non riproducibile qui", "id": self.cur["id"],
                                    "title": self.cur.get("title", ""), "t": self.clock()}
                     self._next()
+
+
+# ---------------------------------------------------------------- server locale per la pagina del player
+MAX_EV = 4096
+
+
+def player_url(port, secret):
+    return "http://localhost:%d/player?k=%s" % (port, secret)
+
+
+class _Handler(BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def _send(self, code, body=b"", ctype="text/plain; charset=utf-8"):
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if body:
+            self.wfile.write(body)
+
+    def _route(self):
+        """Percorso se Host e segreto sono giusti, altrimenti None (risposta 403 gia' inviata)."""
+        srv = self.server
+        # SICUREZZA: solo "localhost:<porta>" (niente DNS rebinding) e solo con il segreto della pagina:
+        # un altro sito aperto nel browser non puo' comandare il player.
+        u = urllib.parse.urlparse(self.path)
+        k = (urllib.parse.parse_qs(u.query).get("k") or [""])[0]
+        if self.headers.get("Host") != "localhost:%d" % srv.server_address[1] or                 not hmac.compare_digest(k.encode(), srv.secret.encode()):
+            self._send(403, b"403 Forbidden")
+            return None
+        return u.path
+
+    def do_GET(self):
+        path = self._route()
+        if path is None:
+            return
+        if path == "/player":
+            with open(os.path.join(self.server.web_dir, "player.html"), "rb") as f:
+                return self._send(200, f.read(), "text/html; charset=utf-8")
+        if path == "/pcmd":
+            return self._send(200, json.dumps(self.server.player.poll()).encode(), "application/json")
+        self._send(404, b"404")
+
+    def do_POST(self):
+        path = self._route()
+        if path is None:
+            return
+        if path != "/pev":
+            return self._send(404, b"404")
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if n < 0 or n > MAX_EV:
+            return self._send(400, b"troppo grande")
+        try:
+            ev = json.loads(self.rfile.read(n).decode("utf-8"))
+        except ValueError:
+            return self._send(400, b"json non valido")
+        if not isinstance(ev, dict):
+            return self._send(400, b"json non valido")
+        self.server.player.report(ev)
+        self._send(204)
+
+
+def start_player_server(port, player, web_dir):
+    """Avvia il server della pagina del player su 127.0.0.1:<port>. Restituisce (server, segreto)."""
+    srv = ThreadingHTTPServer(("127.0.0.1", port), _Handler)
+    srv.daemon_threads = True
+    srv.player, srv.web_dir, srv.secret = player, web_dir, secrets.token_urlsafe(18)
+    threading.Thread(target=srv.serve_forever, name="yt-player", daemon=True).start()
+    return srv, srv.secret

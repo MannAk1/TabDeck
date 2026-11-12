@@ -1,4 +1,7 @@
+import http.client
+import json
 import os
+import socket
 import sys
 import unittest
 
@@ -173,6 +176,79 @@ class PlayerTest(unittest.TestCase):
         p = youtube.Player(clock=self.c)
         self.assertFalse(p.is_open())
         self.assertEqual(p.snapshot()["state"], "closed")
+
+
+def _free_port():
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+
+
+WEB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
+
+
+class LocalServerTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.port = _free_port()
+        cls.player = youtube.Player()
+        cls.srv, cls.k = youtube.start_player_server(cls.port, cls.player, WEB)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+
+    def _req(self, method, path, body=None, host=None):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.putrequest(method, path, skip_host=True)
+        c.putheader("Host", host or "localhost:%d" % self.port)
+        data = body.encode() if isinstance(body, str) else body
+        if data is not None:
+            c.putheader("Content-Length", str(len(data)))
+        c.endheaders(data)
+        r = c.getresponse()
+        out = (r.status, r.read())
+        c.close()
+        return out
+
+    def test_player_url(self):
+        self.assertEqual(youtube.player_url(8865, "abc"), "http://localhost:8865/player?k=abc")
+
+    def test_page_needs_secret(self):
+        self.assertEqual(self._req("GET", "/player")[0], 403)
+        self.assertEqual(self._req("GET", "/player?k=wrong")[0], 403)
+        st, body = self._req("GET", "/player?k=" + self.k)
+        self.assertEqual(st, 200)
+        self.assertIn(b"youtube-nocookie.com", body)
+
+    def test_wrong_host_rejected(self):
+        for h in ("evil.com:%d" % self.port, "127.0.0.1:%d" % self.port, "localhost"):
+            self.assertEqual(self._req("GET", "/player?k=" + self.k, host=h)[0], 403, h)
+
+    def test_pcmd_returns_commands(self):
+        self.player.play_now(_it("z"))
+        st, body = self._req("GET", "/pcmd?k=" + self.k)
+        self.assertEqual(st, 200)
+        self.assertIn({"a": "load", "id": _it("z")["id"], "pos": 0.0}, json.loads(body))
+        self.assertEqual(self._req("GET", "/pcmd")[0], 403)
+
+    def test_pev_reports_state(self):
+        self.player.play_now(_it("y"))
+        st, _ = self._req("POST", "/pev?k=" + self.k, json.dumps({"t": "state", "s": 1, "pos": 3, "dur": 200}))
+        self.assertEqual(st, 204)
+        self.assertEqual(self.player.snapshot()["state"], "playing")
+        self.assertEqual(self._req("POST", "/pev", "{}")[0], 403)
+
+    def test_pev_too_big_or_bad_json(self):
+        self.assertEqual(self._req("POST", "/pev?k=" + self.k, "x" * 5000)[0], 400)
+        self.assertEqual(self._req("POST", "/pev?k=" + self.k, "not json")[0], 400)
+        self.assertEqual(self._req("POST", "/pev?k=" + self.k, "[1]")[0], 400)
+
+    def test_unknown_path_404(self):
+        self.assertEqual(self._req("GET", "/x?k=" + self.k)[0], 404)
 
 
 if __name__ == "__main__":
