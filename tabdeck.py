@@ -4021,6 +4021,28 @@ def stop_server(srv):
         pass
 
 
+_INSTANCE = None   # handle del mutex "una sola istanza" (resta aperto finche' il processo vive)
+
+
+def single_instance(port, wait=15.0):
+    """True se questa e' l'unica istanza di TabDeck su questa porta. Mutex con nome per porta, cosi'
+    una copia di prova su un'altra porta puo' girare insieme. Se e' gia' preso aspetta fino a `wait`
+    secondi: al riavvio (/restart, aggiornamento) la nuova istanza parte mentre la vecchia sta uscendo."""
+    global _INSTANCE
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    k.CreateMutexW.restype = ctypes.c_void_p
+    k.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+    k.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+    h = k.CreateMutexW(None, True, "Local\\TabDeck-%d" % port)
+    if not h:
+        return True                        # mutex non disponibile: meglio partire che bloccarsi
+    _INSTANCE = h
+    if ctypes.get_last_error() != 183:     # ERROR_ALREADY_EXISTS: altrimenti il mutex e' nostro
+        return True
+    # 0 = WAIT_OBJECT_0, 0x80 = WAIT_ABANDONED (la vecchia istanza e' terminata senza rilasciarlo)
+    return k.WaitForSingleObject(h, int(wait * 1000)) in (0, 0x80)
+
+
 def main():
     args = sys.argv[1:]
     fixed = None
@@ -4032,6 +4054,9 @@ def main():
     global PORT, ALLOWED_NETS, ADB_PATH
     cfg = load_config(CONFIG_FILE)
     PORT, ALLOWED_NETS, ADB_PATH = cfg["port"], cfg["allowed_nets"], cfg["adb"]
+    if not single_instance(PORT):
+        print("TabDeck e' gia' in esecuzione (porta %d): questa finestra si chiude." % PORT)
+        sys.exit(3)
     token = load_token()
 
     def warm_icons():  # prepara in cache le icone di browser e launcher

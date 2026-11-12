@@ -27,6 +27,9 @@ prestazioni (con le misure fatte sul tablet). I commenti nel codice rimandano qu
   piccole richieste JSON.
 
 ### Avvio (`main()`)
+0. Una sola istanza per porta (`single_instance`, mutex `Local\TabDeck-<porta>`): se e' gia' preso aspetta fino a 15 s
+   (al riavvio/aggiornamento la vecchia istanza sta uscendo), poi esce con codice 3 e `tabdeck.bat` chiude la finestra
+   senza `pause`. Evita doppi thread Discord/remap HD2 se si riclicca l'icona.
 1. Carica il token (`data/token.txt`, creato al primo avvio).
 2. Legge `data/config.json` (rete, porta, adb). Ogni 3 s: legge l'indirizzo del PC; se è sulla rete consentita (`ALLOWED_NETS`) avvia/riavvia il
    server su quell'indirizzo, altrimenti lo ferma.
