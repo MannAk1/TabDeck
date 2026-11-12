@@ -349,6 +349,7 @@ ICONS = {
     "gear":     "M12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7 M12 2v4 M12 18v4 M2 12h4 M18 12h4 M4.9 4.9l2.8 2.8 M16.3 16.3l2.8 2.8 M4.9 19.1l2.8-2.8 M16.3 7.7l2.8-2.8",
 }
 
+import collections
 import ctypes
 import difflib
 import hashlib
@@ -4021,42 +4022,106 @@ def stop_server(srv):
         pass
 
 
-_INSTANCE = None   # handle del mutex "una sola istanza" (resta aperto finche' il processo vive)
+_INSTANCE = _SHOW_EVENT = None   # mutex "una sola istanza" + evento "mostra la finestra" (aperti finche' il processo vive)
+_ik = ctypes.WinDLL("kernel32", use_last_error=True)
+_ik.CreateMutexW.restype = _ik.CreateEventW.restype = ctypes.c_void_p
+_ik.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+_ik.CreateEventW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_wchar_p]
+_ik.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+_ik.SetEvent.argtypes = _ik.CloseHandle.argtypes = [ctypes.c_void_p]
 
 
-def single_instance(port, wait=15.0):
+def single_instance(port, restart=False, wait=15.0):
     """True se questa e' l'unica istanza di TabDeck su questa porta. Mutex con nome per porta, cosi'
-    una copia di prova su un'altra porta puo' girare insieme. Se e' gia' preso aspetta fino a `wait`
-    secondi: al riavvio (/restart, aggiornamento) la nuova istanza parte mentre la vecchia sta uscendo."""
-    global _INSTANCE
-    k = ctypes.WinDLL("kernel32", use_last_error=True)
-    k.CreateMutexW.restype = ctypes.c_void_p
-    k.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
-    k.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
-    h = k.CreateMutexW(None, True, "Local\\TabDeck-%d" % port)
+    una copia di prova su un'altra porta puo' girare insieme. Se e' gia' preso:
+    - avvio normale (icona cliccata di nuovo): chiede alla prima istanza di mostrare la finestra ed esce subito;
+    - restart (/restart, aggiornamento): la vecchia istanza sta uscendo, la si aspetta fino a `wait` secondi."""
+    global _INSTANCE, _SHOW_EVENT
+    ev = _ik.CreateEventW(None, False, False, "Local\\TabDeck-%d-show" % port)   # auto-reset
+    h = _ik.CreateMutexW(None, True, "Local\\TabDeck-%d" % port)
     if not h:
+        _SHOW_EVENT = ev
         return True                        # mutex non disponibile: meglio partire che bloccarsi
-    _INSTANCE = h
     if ctypes.get_last_error() != 183:     # ERROR_ALREADY_EXISTS: altrimenti il mutex e' nostro
+        _INSTANCE, _SHOW_EVENT = h, ev
         return True
+    if not restart:
+        if ev:
+            _ik.SetEvent(ev)
+            _ik.CloseHandle(ev)
+        _ik.CloseHandle(h)
+        return False
     # 0 = WAIT_OBJECT_0, 0x80 = WAIT_ABANDONED (la vecchia istanza e' terminata senza rilasciarlo)
-    return k.WaitForSingleObject(h, int(wait * 1000)) in (0, 0x80)
+    if _ik.WaitForSingleObject(h, int(wait * 1000)) in (0, 0x80):
+        _INSTANCE, _SHOW_EVENT = h, ev
+        return True
+    return False
+
+
+def show_requested():
+    """True (una volta) se un secondo avvio ha chiesto di mostrare la finestra."""
+    return bool(_SHOW_EVENT) and _ik.WaitForSingleObject(_SHOW_EVENT, 0) == 0
+
+
+def parse_flags(argv):
+    f = {"open": "--open" in argv, "tray": "--tray" in argv, "restart": "--restart" in argv, "host": None}
+    if "--host" in argv:
+        i = argv.index("--host") + 1
+        if i >= len(argv) or argv[i].startswith("--"):
+            sys.exit("Uso: python tabdeck.py [--open] [--tray] [--restart] [--host IP]")
+        f["host"] = argv[i]
+    return f
+
+
+LOG_FILE = os.path.join(DATA_DIR, "tabdeck.log")
+LOG_MAX = 256 * 1024
+
+
+def cap_log(path=LOG_FILE, limit=LOG_MAX):
+    """Registro oltre `limit`: tiene l'ultima meta' (tagliata a inizio riga)."""
+    try:
+        if os.path.getsize(path) <= limit:
+            return
+        with open(path, "rb") as f:
+            f.seek(-(limit // 2), os.SEEK_END)
+            tail = f.read()
+        nl = tail.find(b"\n")
+        with open(path, "wb") as f:
+            f.write(tail[nl + 1:] if nl >= 0 else tail)
+    except OSError:
+        pass
+
+
+def setup_log(path=LOG_FILE):
+    """Senza console (pythonw) print va nel file data/tabdeck.log. Con la console (tabdeck.bat) non cambia nulla."""
+    if sys.stdout is not None and os.path.basename(sys.executable).lower() != "pythonw.exe":
+        return
+    cap_log(path)
+    try:
+        f = open(path, "a", encoding="utf-8", errors="replace", buffering=1)
+    except OSError:
+        return
+    sys.stdout = sys.stderr = f
+
+
+def log_tail(n=200, path=LOG_FILE):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return [l.rstrip("\n") for l in collections.deque(f, n)]
+    except OSError:
+        return []
 
 
 def main():
-    args = sys.argv[1:]
-    fixed = None
-    if "--host" in args:
-        i = args.index("--host") + 1
-        if i >= len(args) or args[i].startswith("--"):
-            sys.exit("Uso: python tabdeck.py [--open] [--host IP]")
-        fixed = args[i]
+    flags = parse_flags(sys.argv[1:])
+    args, fixed = sys.argv[1:], flags["host"]
     global PORT, ALLOWED_NETS, ADB_PATH
     cfg = load_config(CONFIG_FILE)
     PORT, ALLOWED_NETS, ADB_PATH = cfg["port"], cfg["allowed_nets"], cfg["adb"]
-    if not single_instance(PORT):
-        print("TabDeck e' gia' in esecuzione (porta %d): questa finestra si chiude." % PORT)
+    if not single_instance(PORT, flags["restart"]):
+        print("TabDeck e' gia' in esecuzione (porta %d): mostro la sua finestra." % PORT)
         sys.exit(3)
+    setup_log()
     token = load_token()
 
     def warm_icons():  # prepara in cache le icone di browser e launcher
