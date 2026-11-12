@@ -6,7 +6,7 @@ cd /d "%~dp0"
 rem Python scelto dall'installer (data\python.txt), altrimenti quello nel PATH
 set "PY=python"
 if exist "%~dp0data\python.txt" set /p PY=<"%~dp0data\python.txt"
-"%PY%" "%~dp0tabdeck.py" --open
+"%PY%" "%~dp0tabdeck.py" --open %*
 rem 3 = TabDeck era gia' in esecuzione: niente pausa
 if "%errorlevel%"=="3" (timeout /t 4 >nul & exit /b)
 pause

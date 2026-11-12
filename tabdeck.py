@@ -351,6 +351,7 @@ ICONS = {
 
 import collections
 import ctypes
+import devices
 import difflib
 import hashlib
 import hmac
@@ -3118,6 +3119,21 @@ def load_token():
     return tok
 
 
+DEVICES = None   # devices.DeviceStore, creato in main() (None = nessun controllo dei dispositivi, es. nei test vecchi)
+SERVER = None    # server HTTP in ascolto (per cambiare il token al volo)
+
+
+def rotate_token():
+    """"Nuovo link" dalla finestra sul PC: nuovo token, il vecchio link smette di funzionare per i nuovi
+    dispositivi. Quelli approvati restano dentro grazie al loro ID."""
+    tok = secrets.token_urlsafe(18)
+    with open(TOKEN_FILE, "w", encoding="utf-8") as f:
+        f.write(tok + "\n")
+    if SERVER is not None:
+        SERVER.token = tok
+    return tok
+
+
 def lan_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -3451,7 +3467,18 @@ def render_pair(host, token):
             .replace("__VERSION__", html.escape(VERSION)))
 
 
-def render_page(token):
+def render_wait(token, state, code):
+    """Pagina per un dispositivo non ancora approvato (o rifiutato / richieste sospese)."""
+    with open(os.path.join(WEB_DIR, "wait.html"), encoding="utf-8") as f:
+        page = f.read()
+    msg = {"pending": "Approva questo dispositivo dalla finestra di TabDeck sul PC.<br>Controlla che il codice sia lo stesso.",
+           "refused": "Richiesta rifiutata dal PC. Riprova tra qualche minuto.",
+           "locked": "Troppe richieste rifiutate: nuove richieste sospese per un po'."}.get(state, "")
+    return (page.replace("__CODE__", html.escape(code or "----")).replace("__MSG__", msg)
+            .replace("__STATE__", state).replace("__TOKEN__", token))
+
+
+def render_page(token, device=""):
     general, pops = render_general()
     icons = available_icons()
     strats, jump = [], []
@@ -3486,7 +3513,9 @@ def render_page(token):
             .replace("__SETTINGS__", json.dumps(load_settings()))
             .replace("__ALWAYS__", json.dumps(["hd2_" + s for s in ALWAYS]))
             .replace("__CD__", json.dumps(cd_state()))
-            .replace("__LOADOUT__", json.dumps(load_loadout())).replace("__TOKEN__", token))
+            .replace("__LOADOUT__", json.dumps(load_loadout())).replace("__DEVICE__", device)
+            .replace("__APPR__", "true" if DEVICES is not None and DEVICES.require else "false")
+            .replace("__TOKEN__", token))
 
 
 # ---------------------------------------------------------------------------
@@ -3521,7 +3550,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")   # l'indirizzo della pagina non va mai ad altri siti (es. CDN di Discord)
         for k, v in hdrs.items():
-            self.send_header(k, v)
+            for one in (v if isinstance(v, list) else [v]):   # lista = piu' intestazioni uguali (Set-Cookie)
+                self.send_header(k, one)
         self.end_headers()
         self.wfile.write(data)
 
@@ -3534,6 +3564,38 @@ class Handler(BaseHTTPRequestHandler):
                 morsel = None
             given = morsel.value if morsel else ""
         return hmac.compare_digest(given.encode(), self.server.token.encode())
+
+    def _dev_id(self):
+        dev = self.headers.get("X-Device")     # dalla pagina (localStorage): conta anche senza cookie (app iOS)
+        if not devices.valid_id(dev):
+            try:
+                morsel = SimpleCookie(self.headers.get("Cookie") or "").get("tdd")
+            except CookieError:
+                morsel = None
+            dev = morsel.value if morsel else None
+        return dev if devices.valid_id(dev) else None
+
+    def _auth(self, query, create=False):
+        """-> (stato, id dispositivo). stato: ok | pending | refused | locked | bad (= 403 senza dettagli).
+        Entra chi ha il token giusto (e, con l'approvazione attiva, un dispositivo approvato) oppure un dispositivo
+        approvato anche con un token vecchio ("Nuovo link"). Solo la pagina e /devstate (create=True) registrano
+        un dispositivo nuovo: icone e richieste sparse non riempiono l'elenco."""
+        tok = self._token_ok(query)
+        store = DEVICES
+        if store is None:
+            return ("ok" if tok else "bad"), None
+        dev = self._dev_id()
+        ip, ua = self.client_address[0], self.headers.get("User-Agent") or ""
+        if store.is_approved(dev):
+            return store.access(dev, ip, ua)
+        if not tok:
+            return "bad", None
+        if create:
+            return store.access(dev, ip, ua)
+        return ("ok" if not store.require else "pending"), dev
+
+    def _dev_cookie(self, dev):
+        return "tdd=%s; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict" % dev
 
     def _host_ok(self):
         return host_ok(self.headers.get("Host"), *self.server.server_address[:2])
@@ -3554,12 +3616,26 @@ class Handler(BaseHTTPRequestHandler):
             if not pair_allowed(self.client_address[0], bound):
                 return self._send(403, "403 Forbidden")
             return self._send(200, render_pair(bound, self.server.token), "text/html; charset=utf-8")
-        if not self._token_ok(q):
+        st, dev = self._auth(q, create=u.path in ("/", "/devstate"))
+        if st == "bad":
             return self._send(403, "403 Forbidden")
+        if u.path == "/devstate":   # la pagina d'attesa chiede ogni 2 s se e' stata approvata
+            code = DEVICES.code_of(dev) if DEVICES is not None and dev else None
+            return self._send(200, json.dumps({"state": st, "code": code}), "application/json",
+                              {"Set-Cookie": self._dev_cookie(dev)} if dev else None)
+        if st != "ok":
+            if u.path == "/":
+                code = DEVICES.code_of(dev) if st == "pending" else None
+                return self._send(200 if st == "pending" else 403, render_wait(self.server.token, st, code),
+                                  "text/html; charset=utf-8", {"Set-Cookie": self._dev_cookie(dev)})
+            return self._send(403, json.dumps({st: True}), "application/json")
         if u.path == "/":
             # cookie: dopo aver tolto il token dall'URL, un ricaricamento della pagina funziona ancora
-            cookie = "td=%s; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict" % self.server.token
-            return self._send(200, render_page(self.server.token), "text/html; charset=utf-8", {"Set-Cookie": cookie})
+            cookies = ["td=%s; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict" % self.server.token]
+            if dev:
+                cookies.append(self._dev_cookie(dev))
+            return self._send(200, render_page(self.server.token, dev or ""), "text/html; charset=utf-8",
+                              {"Set-Cookie": cookies})
         if u.path == "/ping":
             return self._send(200, "ok")
         if u.path == "/manifest.json":   # "Aggiungi a schermata Home": app a tutto schermo che riparte gia' collegata
@@ -3635,8 +3711,11 @@ class Handler(BaseHTTPRequestHandler):
         if not self._host_ok():
             return self._send(403, "403 Forbidden")
         u = urlparse(self.path)
-        if not self._token_ok(parse_qs(u.query)):
+        st, _dev = self._auth(parse_qs(u.query))
+        if st == "bad":
             return self._send(403, "403 Forbidden")
+        if st != "ok":
+            return self._send(403, json.dumps({st: True}), "application/json")
         if u.path not in ("/press", "/hd2sync", "/loadout", "/settings", "/volume", "/focus", "/appvol", "/media",
                           "/mouse", "/type", "/key", "/mic", "/discord", "/winact", "/layout", "/restart", "/update"):
             return self._send(404, "404")
@@ -3990,8 +4069,10 @@ def open_on_tablet(adb, url, serial):
 # Il server ascolta su UN indirizzo (quello del PC sull'hotspot), non su 0.0.0.0: le altre schede di rete
 # (Ethernet, VPN, altri Wi-Fi) non lo vedono. main() lo ferma se il PC esce dalla rete consentita.
 def start_server(host, token):
+    global SERVER
     srv = ThreadingHTTPServer((host, PORT), Handler)
     srv.token = token
+    SERVER = srv
     th = threading.Thread(target=srv.serve_forever, daemon=True)
     th.start()
     return srv, th
@@ -4001,10 +4082,12 @@ def restart_tabdeck():
     """Riavvia TabDeck: lancia una nuova istanza (come all'avvio di Windows), chiude la finestra cmd
     attuale e termina. La nuova istanza aspetta che la porta si liberi e riapre la pagina sul tablet."""
     time.sleep(0.6)
-    lnk = os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs\Startup\TabDeck.lnk")
-    target = lnk if os.path.isfile(lnk) else os.path.join(HERE, "tabdeck.bat")
-    try:
-        os.startfile(target)
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 7   # SW_SHOWMINNOACTIVE
+    try:   # --restart: la nuova istanza aspetta che questa esca (senza, vedrebbe TabDeck gia' acceso e uscirebbe)
+        subprocess.Popen(["cmd", "/c", os.path.join(HERE, "tabdeck.bat"), "--restart"], cwd=HERE,
+                         creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=si)
     except OSError as e:
         print("[%s] riavvio non riuscito: %s" % (time.strftime("%H:%M:%S"), e))
         return
@@ -4122,6 +4205,9 @@ def main():
         print("TabDeck e' gia' in esecuzione (porta %d): mostro la sua finestra." % PORT)
         sys.exit(3)
     setup_log()
+    global DEVICES
+    DEVICES = devices.DeviceStore(os.path.join(DATA_DIR, "devices.json"),
+                                  fresh_install=not os.path.exists(TOKEN_FILE))   # prima installazione: approvazione attiva
     token = load_token()
 
     def warm_icons():  # prepara in cache le icone di browser e launcher
@@ -4165,6 +4251,7 @@ def main():
             elif ip != host or not alive:
                 if srv is not None:
                     stop_server(srv)
+                token = load_token()     # "Nuovo link" puo' averlo cambiato
                 try:
                     srv, th = start_server(ip, token)
                 except OSError as e:
@@ -4186,6 +4273,8 @@ def main():
                 for d in seen - devs:
                     opened.pop(d, None)   # ricollegandolo, la pagina si riapre
                 seen = devs
+            if DEVICES is not None:
+                DEVICES.flush()          # "visto alle" sul disco al massimo ogni 60 s
             time.sleep(3)
     except KeyboardInterrupt:
         pass

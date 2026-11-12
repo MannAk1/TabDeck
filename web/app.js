@@ -29,6 +29,11 @@
    ===================================================================================== */
 var TABS = __TABS__, TAB_NAMES = __TABNAMES__;
 var CD0 = __CD__, CD = {}, PEND = null, ARR = null, NA = [], USE = {};
+/* ID del dispositivo (approvazione dal PC): anche in localStorage, perche' l'app dalla schermata Home di iOS
+   ha cookie suoi. Va in X-Device su ogni richiesta. */
+var DEVICE = "__DEVICE__", APPR = __APPR__;
+(function () { var a = document.getElementById("apprst"); if (a) { a.textContent = APPR ? "Attiva" : "Disattivata"; } })();
+try { if (DEVICE) { localStorage.setItem("tdd", DEVICE); } else { DEVICE = localStorage.getItem("tdd") || ""; } } catch (e) {}
 var TOKEN = "__TOKEN__", LOADOUT = __LOADOUT__, SETTINGS = __SETTINGS__, ALWAYS = __ALWAYS__, HOLD_MS = __HOLD__, editMode = false, online = true, multiActive = false;
 document.body.className = "pos-" + SETTINGS.pos + (SETTINGS.theme && SETTINGS.theme !== "hd" ? " th-" + SETTINGS.theme : "");
 var HASH = (location.hash || "").slice(1);  /* #mix, #set-td ... apre subito una sezione */
@@ -72,7 +77,7 @@ function post(path, body, cb, ms) {
   var x = new XMLHttpRequest();
   x.open("POST", path, true);
   x.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-  x.setRequestHeader("X-Token", TOKEN);
+  x.setRequestHeader("X-Token", TOKEN); if (DEVICE) { x.setRequestHeader("X-Device", DEVICE); }
   x.timeout = ms || 4000;
   x.onreadystatechange = function () { if (x.readyState === 4) { cb(x.status, x.responseText); } };
   x.send(body);
@@ -170,11 +175,12 @@ function paintVol() { if (valEl) { setText(valEl, VOL.vol); cls(svolEl, "muted",
 function ping() {
   var x = new XMLHttpRequest();
   x.open("GET", "/state?" + (curTab === "grid" ? "g=1&" : "") + "_=" + Date.now(), true);
-  x.setRequestHeader("X-Token", TOKEN);
+  x.setRequestHeader("X-Token", TOKEN); if (DEVICE) { x.setRequestHeader("X-Device", DEVICE); }
   x.timeout = 3000;
   x.onreadystatechange = function () {
     if (x.readyState !== 4) { return; }
     var ok = x.status === 200;
+    if (x.status === 403 && /"(pending|refused|locked)"/.test(x.responseText)) { location.reload(); return; }   /* tolto o in attesa: pagina d'attesa */
     if (ok) {
       try {
         var s = JSON.parse(x.responseText);
@@ -978,7 +984,7 @@ try { dcGuild = localStorage.getItem("tabdeck_dcg"); } catch (e) {}
 function dcGet(path, cb) {
   var x = new XMLHttpRequest();
   x.open("GET", path + (path.indexOf("?") < 0 ? "?" : "&") + "_=" + Date.now(), true);
-  x.setRequestHeader("X-Token", TOKEN);
+  x.setRequestHeader("X-Token", TOKEN); if (DEVICE) { x.setRequestHeader("X-Device", DEVICE); }
   x.timeout = 15000;
   x.onreadystatechange = function () {
     if (x.readyState !== 4) { return; }
@@ -1166,7 +1172,7 @@ function loadAudio() {
   audioBusy = true;
   var x = new XMLHttpRequest();
   x.open("GET", "/audio?_=" + Date.now(), true);
-  x.setRequestHeader("X-Token", TOKEN);
+  x.setRequestHeader("X-Token", TOKEN); if (DEVICE) { x.setRequestHeader("X-Device", DEVICE); }
   x.timeout = 5000;
   x.onreadystatechange = function () {
     if (x.readyState !== 4) { return; }
@@ -1345,7 +1351,7 @@ function loadMon() {
   monBusy = true;
   var x = new XMLHttpRequest();
   x.open("GET", "/stats?" + (MH ? "" : "h=1&") + "_=" + Date.now(), true);
-  x.setRequestHeader("X-Token", TOKEN);
+  x.setRequestHeader("X-Token", TOKEN); if (DEVICE) { x.setRequestHeader("X-Device", DEVICE); }
   x.timeout = 4000;
   x.onreadystatechange = function () {
     if (x.readyState !== 4) { return; }
