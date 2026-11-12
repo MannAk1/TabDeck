@@ -4030,8 +4030,12 @@ class Handler(BaseHTTPRequestHandler):
         if getattr(self, "path", "").startswith(("/ping", "/icon/", "/appicon/", "/volume", "/windows", "/state", "/audio", "/cover/", "/appvol", "/mouse", "/type", "/stats", "/dc", "/discord")) and len(args) > 1 and str(args[1]) == "200":
             return  # ping e icone riusciti non intasano il log
         msg = (fmt % args).replace(self.server.token, "***")  # mai il token nei log
+        msg = _LOG_TOKEN_RE.sub(r"\1***", msg)               # nemmeno quelli vecchi o sbagliati
         sys.stderr.write("[%s] %s %s\n" % (time.strftime("%H:%M:%S"),
                                             self.client_address[0], msg))
+
+
+_LOG_TOKEN_RE = re.compile(r"([?&]t=)[^&\s]+")
 
 
 def find_adb():
@@ -4093,6 +4097,62 @@ def pythonw_exe():
     """pythonw.exe accanto al Python in uso (niente console); se manca, lo stesso Python."""
     w = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
     return w if os.path.isfile(w) else sys.executable
+
+
+STARTUP_LNK = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs",
+                           "Startup", "TabDeck.lnk")
+
+
+def _ps_lnk(script, **env):
+    """PowerShell (WScript.Shell) per leggere/scrivere un .lnk; i percorsi passano come variabili d'ambiente."""
+    e = dict(os.environ, **{"TD_" + k.upper(): v for k, v in env.items()})
+    pre = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:TD_LNK); "
+    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", pre + script], env=e,
+                       capture_output=True, timeout=20, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if r.returncode != 0:
+        raise OSError(r.stderr.decode("utf-8", "replace").strip()[:200])
+    return r.stdout.decode("utf-8", "replace")
+
+
+def read_lnk(path):
+    """-> (destinazione, argomenti) del collegamento."""
+    out = _ps_lnk("[Console]::Out.Write($s.TargetPath + [char]10 + $s.Arguments)", lnk=path)
+    target, _, args = out.partition("\n")
+    return target.strip(), args.strip()
+
+
+def write_lnk(path, target, args, workdir):
+    """Crea o aggiorna il collegamento (un'icona gia' impostata resta)."""
+    _ps_lnk("$s.TargetPath=$env:TD_T; $s.Arguments=$env:TD_A; $s.WorkingDirectory=$env:TD_W; $s.WindowStyle=1; "
+            "$i=Join-Path $env:TD_W 'tabdeck.ico'; if (-not $s.IconLocation.Trim(',0') -and (Test-Path $i)) "
+            "{ $s.IconLocation=$i }; $s.Save()", lnk=path, t=target, a=args, w=workdir)
+
+
+def startup_lnk_plan(target, args, here, pyw):
+    """Collegamento della 1.1.0 (tabdeck.bat di QUESTA cartella) -> (nuova destinazione, argomenti); altrimenti None.
+    Chi aggiorna dall'app non riesegue l'installazione: senza questo all'avvio di Windows avrebbe console e finestra."""
+    if os.path.normcase(target or "") != os.path.normcase(os.path.join(here, "tabdeck.bat")):
+        return None
+    return pyw, '"%s" --open --tray' % os.path.join(here, "tabdeck.py")
+
+
+def migrate_startup_lnk(lnk=STARTUP_LNK, here=HERE, pyw=None):
+    """True se ha aggiornato il collegamento in Esecuzione automatica."""
+    if not os.path.isfile(lnk):
+        return False
+    plan = startup_lnk_plan(*read_lnk(lnk), here, pyw or pythonw_exe())
+    if plan is None:
+        return False
+    write_lnk(lnk, plan[0], plan[1], here)
+    print("collegamento in Esecuzione automatica aggiornato: ora TabDeck parte nell'area di notifica")
+    return True
+
+
+def _migrate_startup_bg():
+    try:
+        migrate_startup_lnk()
+    except (OSError, subprocess.SubprocessError) as e:
+        print("collegamento in Esecuzione automatica non aggiornato: %s" % e)
 
 
 def quit_tabdeck():
@@ -4258,6 +4318,7 @@ def main():
     DISCORD.start()
     threading.Thread(target=_update_auto_check, daemon=True).start()
     sync_uninstall_version(VERSION)
+    threading.Thread(target=_migrate_startup_bg, daemon=True).start()
     # Segnale per updater.py: questa versione si e' avviata (non dipende dalla rete)
     try:
         with open(os.path.join(DATA_DIR, "update_ok.json"), "w", encoding="utf-8") as f:

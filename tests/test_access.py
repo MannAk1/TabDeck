@@ -139,6 +139,16 @@ class AccessTest(unittest.TestCase):
         h.client_address, h.server = ("1.2.3.4", 1), self.srv
         h.log_message("Request timed out: %r", TimeoutError("x"))   # non deve sollevare eccezioni
 
+    def test_log_hides_any_link_token(self):
+        import io
+        from unittest import mock
+        h = object.__new__(tabdeck.Handler)
+        h.client_address, h.server, h.path = ("1.2.3.4", 1), self.srv, "/"
+        with mock.patch.object(sys, "stderr", io.StringIO()) as err:
+            h.log_message('"%s" %s %s', "GET /?t=OldLeakedTok123&x=1 HTTP/1.1", "403", "-")
+        self.assertNotIn("OldLeakedTok123", err.getvalue())
+        self.assertIn("x=1", err.getvalue())
+
     def test_rotated_token_keeps_approved(self):
         self.store.set_require(True)
         dev = self.dev_from(self.req("/")[2])

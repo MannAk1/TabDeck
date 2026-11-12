@@ -33,7 +33,10 @@ Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
 0. Una sola istanza per porta (`single_instance`, mutex `Local\TabDeck-<porta>` + evento `Local\TabDeck-<porta>-show`):
    un secondo avvio normale accende l'evento (la finestra dell'istanza attiva si mostra) ed esce subito (codice 3);
    con `--restart` invece aspetta fino a 15 s che la vecchia istanza esca.
-   Senza console `print` va in `data/tabdeck.log` (`setup_log`, oltre 256 KB tiene l'ultima meta'; mai il token).
+   Senza console `print` va in `data/tabdeck.log` (`setup_log`, oltre 256 KB tiene l'ultima meta'; mai un valore `t=`, nemmeno vecchio o sbagliato).
+   All'avvio (`migrate_startup_lnk`): se il collegamento in Esecuzione automatica e' quello della 1.1.0 (punta a
+   `tabdeck.bat` di questa cartella) diventa `pythonw tabdeck.py --open --tray`: chi aggiorna dall'app non
+   riesegue l'installazione. Collegamenti di altri programmi o cartelle non si toccano.
 1. Crea `DEVICES` (`devices.DeviceStore`, `data/devices.json`) e carica il token (`data/token.txt`, creato al primo avvio).
 2. Legge `data/config.json` (rete, porta, adb). Ogni 3 s: legge l'indirizzo del PC; se è sulla rete consentita (`ALLOWED_NETS`) avvia/riavvia il
    server su quell'indirizzo, altrimenti lo ferma.
