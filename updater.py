@@ -215,7 +215,7 @@ def _start(root):
     --restart: se la vecchia istanza sta ancora chiudendo la aspetta invece di uscire.
     Una versione senza finestra (prima della 1.2.0, es. dopo "Torna alla versione precedente") con pythonw
     girerebbe invisibile: si avvia come allora, con tabdeck.bat in una console ridotta a icona."""
-    if not os.path.isfile(os.path.join(root, "gui.py")):
+    if (_ver_tuple(disk_version(root)) or (0, 0, 0)) < (1, 2, 0):   # gui.py non basta: il ripristino lo lascia
         si = subprocess.STARTUPINFO()
         si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         si.wShowWindow = 7   # SW_SHOWMINNOACTIVE
