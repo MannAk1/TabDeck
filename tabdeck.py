@@ -3590,7 +3590,9 @@ class Handler(BaseHTTPRequestHandler):
             return store.access(dev, ip, ua)
         if not tok:
             return "bad", None
-        if create:
+        if create or dev:
+            # chi manda gia' un ID (la pagina lo fa sempre) viene registrato: niente accessi che non compaiono
+            # nell'elenco, e un dispositivo tolto torna "in attesa" alla sua prossima azione
             return store.access(dev, ip, ua)
         return ("ok" if not store.require else "pending"), dev
 
@@ -4022,7 +4024,7 @@ class Handler(BaseHTTPRequestHandler):
     do_DELETE = do_PATCH = do_PUT
 
     def log_message(self, fmt, *args):
-        if self.path.startswith(("/ping", "/icon/", "/appicon/", "/volume", "/windows", "/state", "/audio", "/cover/", "/appvol", "/mouse", "/type", "/stats", "/dc", "/discord")) and len(args) > 1 and str(args[1]) == "200":
+        if getattr(self, "path", "").startswith(("/ping", "/icon/", "/appicon/", "/volume", "/windows", "/state", "/audio", "/cover/", "/appvol", "/mouse", "/type", "/stats", "/dc", "/discord")) and len(args) > 1 and str(args[1]) == "200":
             return  # ping e icone riusciti non intasano il log
         msg = (fmt % args).replace(self.server.token, "***")  # mai il token nei log
         sys.stderr.write("[%s] %s %s\n" % (time.strftime("%H:%M:%S"),
@@ -4078,23 +4080,50 @@ def start_server(host, token):
     return srv, th
 
 
-def restart_tabdeck():
-    """Riavvia TabDeck: lancia una nuova istanza (come all'avvio di Windows), chiude la finestra cmd
-    attuale e termina. La nuova istanza aspetta che la porta si liberi e riapre la pagina sul tablet."""
+STATUS = {"state": None, "ip": None, "port": None, "adb": []}   # letto dalla finestra sul PC
+_STOP = threading.Event()
+_TRAY = None
+_WINDOW_HIDDEN = lambda: True   # sostituita dalla finestra: serve al riavvio per ripartire uguale
+
+
+def pythonw_exe():
+    """pythonw.exe accanto al Python in uso (niente console); se manca, lo stesso Python."""
+    w = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+    return w if os.path.isfile(w) else sys.executable
+
+
+def quit_tabdeck():
+    """Esci: ferma server e icona, salva i dispositivi, termina. Dopo 3 s si esce comunque."""
+    t = threading.Timer(3, os._exit, (0,))
+    t.daemon = True
+    t.start()
+    _STOP.set()
+    try:
+        if DEVICES is not None:
+            DEVICES.flush(force=True)
+    except OSError:
+        pass
+    if _TRAY is not None:
+        _TRAY.stop()
+    if SERVER is not None:
+        stop_server(SERVER)
+    os._exit(0)
+
+
+def restart_tabdeck(hidden=None):
+    """Riavvia TabDeck: lancia una nuova istanza senza console (--restart: aspetta che questa esca) e termina.
+    La nuova istanza riapre la pagina sul tablet; resta nell'area di notifica se la finestra era nascosta."""
+    if hidden is None:
+        hidden = _WINDOW_HIDDEN()
     time.sleep(0.6)
-    si = subprocess.STARTUPINFO()
-    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    si.wShowWindow = 7   # SW_SHOWMINNOACTIVE
-    try:   # --restart: la nuova istanza aspetta che questa esca (senza, vedrebbe TabDeck gia' acceso e uscirebbe)
-        subprocess.Popen(["cmd", "/c", os.path.join(HERE, "tabdeck.bat"), "--restart"], cwd=HERE,
-                         creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=si)
+    cmd = [pythonw_exe(), os.path.join(HERE, "tabdeck.py"), "--open", "--restart"] + (["--tray"] if hidden else [])
+    try:
+        subprocess.Popen(cmd, cwd=HERE, close_fds=True,
+                         creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
     except OSError as e:
         print("[%s] riavvio non riuscito: %s" % (time.strftime("%H:%M:%S"), e))
         return
-    ppid = os.getppid()
-    if os.path.basename(_exe_of_pid(ppid)).lower() == "cmd.exe":
-        subprocess.run(["taskkill", "/F", "/PID", str(ppid)], capture_output=True)
-    os._exit(0)
+    quit_tabdeck()
 
 
 def stop_server(srv):
@@ -4197,7 +4226,6 @@ def log_tail(n=200, path=LOG_FILE):
 
 def main():
     flags = parse_flags(sys.argv[1:])
-    args, fixed = sys.argv[1:], flags["host"]
     global PORT, ALLOWED_NETS, ADB_PATH
     cfg = load_config(CONFIG_FILE)
     PORT, ALLOWED_NETS, ADB_PATH = cfg["port"], cfg["allowed_nets"], cfg["adb"]
@@ -4227,15 +4255,66 @@ def main():
             json.dump({"version": VERSION, "pid": os.getpid(), "t": time.time()}, f)
     except OSError:
         pass
-    print("TabDeck %s. Ctrl+C per fermare. Se la rete cade, il server si ricollega da solo." % VERSION)
+    print("[%s] TabDeck %s avviato. Se la rete cade, il server si ricollega da solo." % (time.strftime("%H:%M:%S"), VERSION))
+    try:
+        import gui
+        import tray
+    except ImportError as e:     # Python senza tkinter: si resta col server e basta (come prima)
+        print("finestra non disponibile (%s): solo server" % e)
+        return serve_loop(flags)
+    threading.Thread(target=serve_loop, args=(flags,), name="server", daemon=True).start()
+    gui.run(_App(flags, tray))
+
+
+class _App:
+    """Quello che serve alla finestra (gui.py), senza che gui.py importi tabdeck."""
+    def __init__(self, flags, tray_mod):
+        self.version, self.start_hidden = VERSION, flags["tray"]
+        self.icon_path = os.path.join(HERE, "tabdeck.ico")
+        self.devices, self._tray = DEVICES, tray_mod
+        self.qr_matrix = __import__("tdqr").qr_matrix
+        self.log_tail, self.show_requested, self.rotate_token = log_tail, show_requested, rotate_token
+        self.hidden = flags["tray"]       # aggiornato dalla finestra (letto dal riavvio, anche da altri thread)
+        global _WINDOW_HIDDEN
+        _WINDOW_HIDDEN = lambda: self.hidden
+
+    def status(self):
+        st = dict(STATUS)
+        st["update"] = UPD["latest"] if UPD["latest"] and parse_version(UPD["latest"]) > parse_version(VERSION) else None
+        return st
+
+    def pair_url(self):
+        ip = STATUS.get("ip") if STATUS.get("state") == "listening" else None
+        return "http://%s:%d/?t=%s" % (ip, PORT, SERVER.token) if ip and SERVER is not None else None
+
+    def make_tray(self, on_open, on_restart, on_quit):
+        global _TRAY
+        try:
+            _TRAY = self._tray.Tray(self.icon_path, "TabDeck %s" % VERSION, on_open, on_restart, on_quit)
+            _TRAY.start()
+        except Exception as e:
+            print("icona di notifica non disponibile: %s" % e)
+            _TRAY = None
+        return _TRAY
+
+    def restart(self, hidden):
+        threading.Thread(target=restart_tabdeck, args=(hidden,), daemon=True).start()
+
+    def quit(self):
+        quit_tabdeck()
+
+
+def serve_loop(flags):
+    """Il ciclo di sempre (thread "server"): ascolta solo sulla rete consentita, apre la pagina sul tablet via adb."""
+    fixed = flags["host"]
     srv = th = None
     host = url = None
-    adb = find_adb() if "--open" in args else None
-    if "--open" in args and not adb:
+    adb = find_adb() if flags["open"] else None
+    if flags["open"] and not adb:
         print("adb non trovato: la pagina andra' aperta a mano sul tablet")
     seen, opened, warned = set(), {}, None     # tablet collegati via adb; seriale -> ultimo indirizzo aperto
     try:
-        while True:
+        while not _STOP.is_set():
             ip = fixed or lan_ip()
             alive = th is not None and th.is_alive()
             # SICUREZZA: si ascolta solo sulla rete dell'hotspot (ALLOWED_NETS). Su un altro Wi-Fi (bar, albergo)
@@ -4248,6 +4327,8 @@ def main():
                 if host is not None:
                     stop_server(srv)
                     srv = th = host = None
+                STATUS.update(state="blocked" if ip != "127.0.0.1" else "waiting", ip=None if ip == "127.0.0.1" else ip,
+                              port=PORT)
             elif ip != host or not alive:
                 if srv is not None:
                     stop_server(srv)
@@ -4260,7 +4341,9 @@ def main():
                 else:
                     host = ip
                     url = "http://%s:%d/?t=%s" % (host, PORT, token)
-                    print("[%s] TabDeck in ascolto su %s" % (time.strftime("%H:%M:%S"), url))
+                    print("[%s] TabDeck in ascolto su %s:%d" % (time.strftime("%H:%M:%S"), host, PORT))   # niente token nel registro
+            if host is not None:
+                STATUS.update(state="listening", ip=host, port=PORT)
             # apertura automatica: quando il tablet si collega (cavo USB) o quando cambia l'indirizzo del PC
             if adb and host is not None:
                 devs = adb_devices(adb)
@@ -4273,9 +4356,10 @@ def main():
                 for d in seen - devs:
                     opened.pop(d, None)   # ricollegandolo, la pagina si riapre
                 seen = devs
+                STATUS["adb"] = sorted(devs)
             if DEVICES is not None:
                 DEVICES.flush()          # "visto alle" sul disco al massimo ogni 60 s
-            time.sleep(3)
+            _STOP.wait(3)
     except KeyboardInterrupt:
         pass
     finally:

@@ -98,10 +98,28 @@ class AccessTest(unittest.TestCase):
         other = devices.new_id()
         self.assertEqual(self.req("/ping", dev=dev, cookie_dev=other)[0], 200)
 
-    def test_unknown_device_other_route_does_not_create(self):
-        self.req("/ping", cookie_dev=devices.new_id())
+    def test_request_without_id_does_not_create(self):
         self.req("/ping")
         self.assertEqual(self.store.approved(), [])
+
+    def test_known_format_id_reappears_when_require_off(self):
+        dev = devices.new_id()
+        self.assertEqual(self.req("/press", dev=dev, method="POST", body="id=x")[0] in (200, 400, 404), True)
+        self.assertTrue(self.store.is_approved(dev))     # niente accessi invisibili: torna nell'elenco
+
+    def test_removed_device_blocked_when_require_on(self):
+        dev = self.dev_from(self.req("/")[2])
+        self.store.set_require(True)
+        self.assertEqual(self.req("/ping", dev=dev)[0], 200)
+        self.store.remove(dev)
+        st, body, _ = self.req("/ping", dev=dev)
+        self.assertEqual(st, 403)
+        self.assertTrue(json.loads(body).get("pending"))
+
+    def test_log_message_without_path(self):
+        h = object.__new__(tabdeck.Handler)
+        h.client_address, h.server = ("1.2.3.4", 1), self.srv
+        h.log_message("Request timed out: %r", TimeoutError("x"))   # non deve sollevare eccezioni
 
     def test_rotated_token_keeps_approved(self):
         self.store.set_require(True)
