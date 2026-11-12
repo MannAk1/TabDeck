@@ -302,7 +302,7 @@ NAV = [
     ("hd2", "Helldivers 2", "Stratagemmi ed equipaggiamento", "target"),
 ]
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 # Valori predefiniti (quelli del PC originale); data\config.json, scritto dall'installer, li sostituisce.
 PORT = 8765
 # Reti su cui TabDeck accetta di ascoltare (prefisso dell'indirizzo del PC). 172.20.10.x = hotspot dell'iPhone.
