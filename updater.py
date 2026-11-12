@@ -212,7 +212,15 @@ def _wait_pid(pid, timeout=15):
 
 def _start(root):
     """Avvia TabDeck senza console (pythonw), nell'area di notifica; restituisce il processo.
-    --restart: se la vecchia istanza sta ancora chiudendo la aspetta invece di uscire."""
+    --restart: se la vecchia istanza sta ancora chiudendo la aspetta invece di uscire.
+    Una versione senza finestra (prima della 1.2.0, es. dopo "Torna alla versione precedente") con pythonw
+    girerebbe invisibile: si avvia come allora, con tabdeck.bat in una console ridotta a icona."""
+    if not os.path.isfile(os.path.join(root, "gui.py")):
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 7   # SW_SHOWMINNOACTIVE
+        return subprocess.Popen(["cmd", "/c", os.path.join(root, "tabdeck.bat")], cwd=root,
+                                creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=si)
     w = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
     exe = w if os.path.isfile(w) else sys.executable
     return subprocess.Popen([exe, os.path.join(root, "tabdeck.py"), "--open", "--restart", "--tray"], cwd=root,

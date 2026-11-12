@@ -196,6 +196,7 @@ class StartCommandTest(unittest.TestCase):
     def test_start_launches_pythonw_without_console(self):
         from unittest import mock
         root = tempfile.mkdtemp()
+        open(os.path.join(root, "gui.py"), "w").close()
         with mock.patch.object(updater.subprocess, "Popen") as po:
             updater._start(root)
         cmd = po.call_args[0][0]
@@ -203,3 +204,14 @@ class StartCommandTest(unittest.TestCase):
         self.assertTrue(os.path.basename(cmd[0]).lower() in ("pythonw.exe", "python.exe"))
         self.assertEqual(cmd[1], os.path.join(root, "tabdeck.py"))
         self.assertEqual(cmd[2:], ["--open", "--restart", "--tray"])
+
+
+    def test_start_old_version_uses_console_bat(self):
+        # ritorno a una versione senza finestra (1.1.0): con pythonw girerebbe invisibile
+        from unittest import mock
+        root = tempfile.mkdtemp()
+        with mock.patch.object(updater.subprocess, "Popen") as po:
+            updater._start(root)
+        cmd = po.call_args[0][0]
+        self.assertEqual(cmd, ["cmd", "/c", os.path.join(root, "tabdeck.bat")])
+        self.assertTrue(po.call_args[1]["creationflags"] & updater.subprocess.CREATE_NEW_CONSOLE)
