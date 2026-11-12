@@ -160,5 +160,55 @@ class YtStartTest(unittest.TestCase):
             tabdeck.PORT, tabdeck.YT_URL = old_port, old_url
 
 
+class RowsTest(unittest.TestCase):
+    def test_default_favorites_have_yt_not_spotify(self):
+        self.assertIn("_yt", tabdeck.DEFAULT_FAV)
+        self.assertNotIn("spotify", tabdeck.DEFAULT_FAV)
+        self.assertIn("_yt", tabdeck.SPECIALS)
+
+    def test_clean_rows_keeps_yt(self):
+        r = tabdeck.clean_rows({"avvio": ["_yt", "discord"], "sistema": [], "strumenti": []})
+        self.assertEqual(r["avvio"], ["_yt", "discord"])
+
+    def test_migration_replaces_spotify_once(self):
+        rows = {"avvio": ["opera_gx", "spotify", "steam"], "sistema": ["_vol"], "strumenti": []}
+        out = tabdeck.yt_migrate(rows, done=False)
+        self.assertEqual(out["avvio"], ["opera_gx", "_yt", "steam"])
+        self.assertEqual(tabdeck.yt_migrate(out, done=False)["avvio"], ["opera_gx", "_yt", "steam"])
+
+    def test_migration_appends_when_no_spotify(self):
+        out = tabdeck.yt_migrate({"avvio": ["discord"], "sistema": [], "strumenti": []}, done=False)
+        self.assertEqual(out["avvio"], ["discord", "_yt"])
+        full = ["k%d" % i for i in range(tabdeck.FAV_MAX)]
+        self.assertEqual(tabdeck.yt_migrate({"avvio": list(full), "sistema": [], "strumenti": []}, done=False)["avvio"], full)
+
+    def test_migration_respects_removed_tile(self):
+        rows = {"avvio": ["opera_gx", "spotify"], "sistema": [], "strumenti": []}
+        self.assertEqual(tabdeck.yt_migrate(rows, done=True)["avvio"], ["opera_gx", "spotify"])
+
+    def test_migration_skips_when_yt_elsewhere(self):
+        rows = {"avvio": ["spotify"], "sistema": ["_yt"], "strumenti": []}
+        self.assertEqual(tabdeck.yt_migrate(rows, done=False), rows)
+
+    def test_save_layout_writes_flag(self):
+        import tempfile
+        old = tabdeck.LAYOUT_FILE
+        d = tempfile.mkdtemp()
+        try:
+            tabdeck.LAYOUT_FILE = os.path.join(d, "layout.json")
+            tabdeck.save_layout()
+            with open(tabdeck.LAYOUT_FILE, encoding="utf-8") as fh:
+                self.assertTrue(json.load(fh)["yt_added"])
+        finally:
+            tabdeck.LAYOUT_FILE = old
+
+    def test_yt_special_html_has_data_go(self):
+        h = tabdeck.special_html("_yt")
+        self.assertIn('data-go="yt"', h)
+        self.assertIn('data-yt="1"', h)
+        self.assertIn('id="syt"', h)
+        self.assertNotIn('id="syt"', tabdeck.special_html("_yt", False))
+
+
 if __name__ == "__main__":
     unittest.main()

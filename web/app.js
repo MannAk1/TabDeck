@@ -162,6 +162,8 @@ function bind(el) {
     if (ct && !live && !multi && !multiActive && !editMode && scroller.scrollTop === sc && lastScroll < t0) {
       var dx = ct.clientX - sx, dy = ct.clientY - sy, sw = winOf(el);
       if (sw && Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) { winAct(el, sw, dy < 0 ? "max" : "min"); return; }
+      /* riquadro YouTube: scorri su = apri (o porta davanti) il player sul PC */
+      if (el.hasAttribute("data-yt") && dy < -40 && Math.abs(dy) > 1.5 * Math.abs(dx)) { flash(el, "ok"); ytBtn("open", el); return; }
     }
     if (!live || multiActive) { live = false; return; }
     live = false;

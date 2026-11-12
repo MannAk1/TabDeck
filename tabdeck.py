@@ -51,7 +51,9 @@ def appx(aumid):
 SECTIONS = [("avvio", "Preferiti"), ("sistema", "Sistema"), ("strumenti", "Strumenti")]
 # Riga Preferiti, da sinistra a destra (a destra = vicino alla mano). In fondo c'e' sempre "Altre app"
 # con tutti i gruppi (Browser, Launcher, Giochi). Ogni id deve esistere in BUTTONS.
-FAVORITES = ["opera_gx", "discord", "spotify", "steam", "helldivers2", "explorer"]
+# "_yt" = riquadro YouTube (tocco = sezione YouTube, scorri su = player sul PC); Spotify resta in "Altre app".
+DEFAULT_FAV = ["opera_gx", "discord", "_yt", "steam", "helldivers2", "explorer"]
+FAVORITES = list(DEFAULT_FAV)
 GROUPS = [
     {"id": "browser",  "sec": "avvio", "cat": "app",  "icon": "globe", "label": "Browser"},
     {"id": "launcher", "sec": "avvio", "cat": "game", "icon": "pad",   "label": "Launcher"},
@@ -459,16 +461,16 @@ for _b in BUTTONS:  # valida la configurazione all'avvio
             (_b.get("group") and _b["group"] not in [g["id"] for g in GROUPS]) or not (_b.get("sec") or _b.get("group")):
         sys.exit("Sezione/gruppo non valido nel pulsante %s" % _b["id"])
 for _f in FAVORITES:
-    if _f not in BY_ID:
+    if _f not in BY_ID and not _f.startswith("_"):
         sys.exit("FAVORITES contiene un pulsante sconosciuto: %s" % _f)
 
 # --- Righe di Generale modificabili dal tablet: tabdeck_layout.json =
 #     {"fav": [id...], "rows": {"sistema": [...], "strumenti": [...]}, "custom": [app...], "keys": [scorciatoie...]}
-# "_vol" e "_mic" sono i riquadri speciali Volume e Microfono (uno solo ciascuno).
+# "_vol", "_mic", "_yt" sono i riquadri speciali Volume, Microfono e YouTube (uno solo ciascuno).
 LAYOUT_FILE = os.path.join(DATA_DIR, "layout.json")
 FAV_MAX = 10
 ROW_SIDS = ("avvio", "sistema", "strumenti")
-SPECIALS = ("_vol", "_mic")
+SPECIALS = ("_vol", "_mic", "_yt")
 ROWS = {"avvio": FAVORITES,
         "sistema": [b["id"] for b in BUTTONS if b.get("sec") == "sistema"] + ["_vol"],
         "strumenti": [b["id"] for b in BUTTONS if b.get("sec") == "strumenti"] + ["_mic"]}
@@ -575,6 +577,21 @@ def clean_rows(rows):
     return out
 
 
+def yt_migrate(rows, done):
+    """Una volta sola: il riquadro YouTube prende il posto di Spotify nei Preferiti (o va in fondo se c'e' posto).
+    done = il file salvato dice gia' "yt_added": chi poi lo toglie non se lo ritrova."""
+    if done or any("_yt" in (rows.get(sid) or []) for sid in ROW_SIDS):
+        return rows
+    fav = list(rows.get("avvio") or [])
+    if "spotify" in fav:
+        fav[fav.index("spotify")] = "_yt"
+    elif len(fav) < FAV_MAX:
+        fav.append("_yt")
+    out = dict(rows)
+    out["avvio"] = fav
+    return out
+
+
 def apply_layout():
     try:
         with open(LAYOUT_FILE, encoding="utf-8") as fh:
@@ -593,7 +610,7 @@ def apply_layout():
     saved = data.get("rows") if isinstance(data.get("rows"), dict) else {}
     rows = {"avvio": data.get("fav") or ROWS["avvio"], "sistema": saved.get("sistema", ROWS["sistema"]),
             "strumenti": saved.get("strumenti", ROWS["strumenti"])}
-    rows = clean_rows(rows)
+    rows = clean_rows(yt_migrate(rows, bool(data.get("yt_added"))))
     FAVORITES[:] = rows["avvio"]
     ROWS["sistema"][:] = rows["sistema"]
     ROWS["strumenti"][:] = rows["strumenti"]
@@ -608,7 +625,7 @@ def save_layout(rows=None):
         used = [i for sid in ROW_SIDS for i in ROWS[sid]]
         data = {"fav": list(FAVORITES), "rows": {"sistema": list(ROWS["sistema"]), "strumenti": list(ROWS["strumenti"])},
                 "custom": [BY_ID[i]["custom"] for i in used if i in BY_ID and BY_ID[i].get("custom")],
-                "keys": CUSTOM_KEYS}
+                "keys": CUSTOM_KEYS, "yt_added": True}
         tmp = LAYOUT_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=1)
@@ -3212,6 +3229,9 @@ def special_html(i, live=True):
         return ('<button class="b win"%s data-go="mix" data-n="Volume">%s<span class="l">Volume</span>'
                 '<span class="h mono"><span%s>--</span>%% &rsaquo;</span></button>'
                 % (' id="svol"' if live else "", svg("vol_up"), ' id="volval"' if live else ""))
+    if i == "_yt":
+        return ('<button class="b media"%s data-go="yt" data-yt="1" data-n="YouTube"><span class="mo">YT</span>'
+                '<span class="l">YouTube</span><span class="h mono">musica e video</span></button>' % (' id="syt"' if live else ""))
     return ('<button class="b app"%s data-mic="1" data-n="Microfono"><span class="v1">%s</span><span class="v2">%s</span>'
             '<span class="l">Mic</span><span class="h mono">Windows</span></button>' % (' id="smic"' if live else "", svg("mic"), svg("mic_off")))
 
