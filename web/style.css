@@ -481,7 +481,15 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
 #kebtns{margin-top:14px}
 /* YouTube: risultati a sinistra, player e coda a destra (vicino alla mano) */
 #yt{padding:8px;gap:10px}
-#ytl{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+#ytl{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+/* suggerimenti sotto il campo di ricerca, sopra i risultati */
+#ytsug{display:none;position:absolute;left:0;right:118px;top:56px;z-index:5;flex-direction:column;background:var(--panel);
+ box-shadow:0 0 0 1px var(--amber2),0 8px 18px rgba(0,0,0,.6)}
+#ytsug.show{display:flex}
+.ytsg{flex:0 0 44px;height:44px;padding:0 14px;border:0;outline:none;text-align:left;font-family:inherit;font-size:16px;color:var(--text);
+ background:transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-top:1px solid var(--line)}
+.ytsg:first-child{border-top:0}
+.ytsg.on{background:#3a3f2a}
 #ytsb{flex:0 0 52px;display:flex;gap:8px}
 #ytq{flex:1;min-width:0;height:52px;padding:0 12px;font:inherit;font-size:17px;color:var(--text);background:var(--panel2);border:0;border-radius:0;
  box-shadow:inset 0 0 0 1px var(--line);outline:none;-webkit-appearance:none}

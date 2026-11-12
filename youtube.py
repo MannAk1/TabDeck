@@ -74,6 +74,32 @@ def search(q, timeout=8.0):
     return parse_results(html)
 
 
+def parse_suggest(text, limit=8):
+    """Suggerimenti dalla risposta JSONP di YouTube: window.google.ac.h(["q", [["testo", ...], ...], {...}])."""
+    a, b = text.find("("), text.rfind(")")
+    if a < 0 or b <= a:
+        return []
+    try:
+        data = json.loads(text[a + 1:b])
+        items = data[1]
+        out = [it[0] for it in items if isinstance(it, list) and it and isinstance(it[0], str)]
+    except (ValueError, IndexError, TypeError):
+        return []
+    return [s[:MAX_TEXT] for s in out[:limit]]
+
+
+def suggest(q, timeout=4.0):
+    """Fino a 8 suggerimenti per la ricerca; [] se il servizio non risponde (la ricerca normale funziona lo stesso)."""
+    url = "https://suggestqueries-clients6.youtube.com/complete/search?" + urllib.parse.urlencode(
+        {"client": "youtube", "ds": "yt", "hl": "it", "q": q})
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": _HEADERS["User-Agent"]})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return parse_suggest(r.read().decode("utf-8", "replace"))
+    except (OSError, ValueError):
+        return []
+
+
 # ---------------------------------------------------------------- player: coda e stato
 # -1 (non avviato) arriva a ogni caricamento: non cambia lo stato, altrimenti un "+" in quel momento sostituirebbe
 # il video che sta partendo. 5 = video pronto ma fermo (ripresa di un video in pausa).

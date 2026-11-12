@@ -96,6 +96,7 @@ function activate(el, alt) {
   if (el.hasAttribute("data-ytup")) { ytAct("up", "i=" + el.getAttribute("data-ytup")); return; }
   if (el.hasAttribute("data-ytrm")) { ytAct("rm", "i=" + el.getAttribute("data-ytrm")); return; }
   if (el.hasAttribute("data-ytv")) { ytView(el.getAttribute("data-ytv")); return; }
+  if (el.hasAttribute("data-yts")) { ytPickSug(+el.getAttribute("data-yts")); return; }
   if (!alt && !editMode) { var ra = runOf(el); if (ra) { runTap(el, ra); return; } }
   if (!alt && el.getAttribute("data-id") === "discord" && !el.closest(".gpop")) { showTab("dc"); return; }   /* anche con Discord chiuso */
   if (el.hasAttribute("data-grp")) { openGroup(el.getAttribute("data-grp")); return; }
@@ -1380,8 +1381,27 @@ function ytItem(it) {
   return "id=" + encodeURIComponent(it.id) + "&title=" + encodeURIComponent(it.title) + "&channel=" + encodeURIComponent(it.channel) +
     "&dur=" + encodeURIComponent(it.dur);
 }
+/* suggerimenti: dopo 250 ms senza scrivere; una risposta arrivata tardi (testo cambiato o ricerca gia' partita) si ignora */
+var ytSug = document.getElementById("ytsug"), YTSG = [], ytSugT = null, ytSugSeq = 0;
+function ytSugHide() { ytSugSeq++; if (ytSugT) { clearTimeout(ytSugT); ytSugT = null; } cls(ytSug, "show", false); }
+function ytSugAsk() {
+  var q = ytQ.value.replace(/^\s+|\s+$/g, ""), seq = ++ytSugSeq;
+  if (!q || q.length > 200) { cls(ytSug, "show", false); return; }
+  dcGet("/ytsug?q=" + encodeURIComponent(q), function (code, j) {
+    if (seq !== ytSugSeq || document.activeElement !== ytQ) { return; }
+    YTSG = (code === 200 && j && j.s) || [];
+    ytSug.innerHTML = YTSG.map(function (t, i) { return '<button class="ytsg" data-yts="' + i + '" data-n="' + esc(t) + '">' + esc(t) + "</button>"; }).join("");
+    [].forEach.call(ytSug.getElementsByClassName("ytsg"), bind);
+    cls(ytSug, "show", YTSG.length > 0);
+  });
+}
+ytQ.addEventListener("input", function () { if (ytSugT) { clearTimeout(ytSugT); } ytSugT = setTimeout(ytSugAsk, 250); }, false);
+/* il tocco su un suggerimento arriva dopo che il campo ha perso il fuoco: la lista si chiude con un po' di ritardo */
+ytQ.addEventListener("blur", function () { setTimeout(function () { if (document.activeElement !== ytQ) { ytSugHide(); } }, 400); }, false);
+function ytPickSug(i) { var t = YTSG[i]; if (!t) { return; } ytQ.value = t; ytSearch(); }
 function ytSearch() {
   var q = ytQ.value.replace(/^\s+|\s+$/g, "");
+  ytSugHide();
   if (!q || ytBusy) { return; }
   ytQ.blur(); ytBusy = true;
   ytRes.innerHTML = '<div class="dcempty">Cerco&hellip;</div>';

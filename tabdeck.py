@@ -3698,6 +3698,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.log_message("ERRORE ricerca YouTube: %s", e)
                 return self._send(502, json.dumps({"err": "Ricerca non riuscita"}), "application/json")
             return self._send(200, json.dumps({"r": res}), "application/json")
+        if u.path == "/ytsug":  # suggerimenti mentre si scrive nella ricerca YouTube
+            yq = (q.get("q") or [""])[0].strip()
+            if not yq or len(yq) > 200:
+                return self._send(400, "ricerca non valida")
+            return self._send(200, json.dumps({"s": youtube.suggest(yq)}), "application/json")
         if u.path == "/yt":     # stato del player YouTube (ogni secondo mentre la sezione e' aperta)
             return self._send(200, json.dumps(YT.snapshot()), "application/json")
         if u.path == "/dc":     # sezione Discord: stato + chiamata attuale (ogni 0,6 s mentre e' aperta)
