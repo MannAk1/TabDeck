@@ -320,9 +320,12 @@ function winAct(el, r, a) {
 /* menu (tenendo premuto): accanto al riquadro, azioni grandi da toccare */
 var wmenu = document.getElementById("wmenu"), wbox = document.getElementById("wbox");
 /* Il menu si apre col dito ancora giu': finche' quel dito non si alza (e per un attimo dopo) il menu ignora i
-   tocchi, altrimenti il "tap" che Safari manda al rilascio lo chiuderebbe o premerebbe la voce sotto il dito. */
+   tocchi, altrimenti il "tap" che Safari manda al rilascio lo chiuderebbe o premerebbe la voce sotto il dito.
+   Dopo il rilascio si ignora solo quel tap: un dito che tocca di nuovo e' una scelta vera e vale subito
+   (prima c'era una pausa fissa di 450 ms che su iPhone mangiava i tocchi veloci sulle voci). */
 var menuHold = false, menuQuietUntil = 0;
 function menuRelease() { if (menuHold) { menuHold = false; menuQuietUntil = Date.now() + 450; } }
+document.addEventListener("touchstart", function () { if (!menuHold) { menuQuietUntil = 0; } }, {capture: true, passive: true});
 document.addEventListener("touchend", function (e) { if (!e.touches || e.touches.length === 0) { menuRelease(); } }, {capture: true, passive: true});
 document.addEventListener("touchcancel", menuRelease, {capture: true, passive: true});
 function openWinMenu(el, r, held) {
