@@ -671,6 +671,50 @@ function edReindex() { [].forEach.call(favrow.children, function (el, i) { el.se
 favrow.addEventListener("click", function (e) {
   var fi = e.target.closest(".fi"); if (fi && ED) { edSelect(+fi.getAttribute("data-i")); }
 }, false);
+/* trascinare un riquadro della riga lo sposta (le frecce restano). Un tocco senza movimento = selezione, come prima.
+   Il dito su un riquadro non fa scorrere le impostazioni: per scorrere si tocca fuori dalla riga. */
+(function () {
+  var d = null;
+  favrow.addEventListener("touchstart", function (e) {
+    var fi = e.target.closest && e.target.closest(".fi"), p = e.touches[0], r;
+    if (!fi || !ED || e.touches.length !== 1) { d = null; return; }
+    r = fi.getBoundingClientRect();
+    d = {el: fi, x0: p.clientX, y0: p.clientY, dx: p.clientX - r.left, dy: p.clientY - r.top, w: r.width, h: r.height, g: null};
+  }, false);
+  favrow.addEventListener("touchmove", function (e) {
+    if (!d) { return; }
+    if (e.cancelable) { e.preventDefault(); }
+    var p = e.touches[0], t, o, r;
+    if (!d.g) {
+      if (Math.abs(p.clientX - d.x0) < 8 && Math.abs(p.clientY - d.y0) < 8) { return; }
+      d.g = d.el.cloneNode(true); d.g.id = "fghost"; d.g.style.width = d.w + "px"; d.g.style.height = d.h + "px";
+      document.body.appendChild(d.g); cls(d.el, "fdrag", true);
+    }
+    d.g.style.left = (p.clientX - d.dx) + "px"; d.g.style.top = (p.clientY - d.dy) + "px";
+    t = document.elementFromPoint(p.clientX, p.clientY);
+    o = t && t.closest && t.closest("#favrow > .fi");
+    if (!o || o === d.el) { return; }
+    r = o.getBoundingClientRect();
+    favrow.insertBefore(d.el, p.clientX < r.left + r.width / 2 ? o : o.nextSibling);
+  }, false);
+  function end(e) {
+    if (!d) { return; }
+    var moved = !!d.g, L, sel;
+    if (moved) {
+      if (e && e.cancelable) { e.preventDefault(); }   /* niente "click": era uno spostamento, non una selezione */
+      d.g.parentNode.removeChild(d.g); cls(d.el, "fdrag", false);
+      L = ED.rows[edRow];
+      ED.rows[edRow] = [].map.call(favrow.children, function (el) { return L[+el.getAttribute("data-i")]; });
+      sel = favrow.querySelector(".fi.sel");
+      edReindex();
+      edSel = sel ? +sel.getAttribute("data-i") : -1;
+      edPaintBar();
+    }
+    d = null;
+  }
+  favrow.addEventListener("touchend", end, false);
+  favrow.addEventListener("touchcancel", end, false);
+})();
 document.getElementById("rsel").addEventListener("click", function (e) {
   var d = e.target.closest("[data-r]"); if (!d || !ED) { return; }
   edRow = d.getAttribute("data-r");
