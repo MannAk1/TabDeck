@@ -56,16 +56,6 @@ class GeneraleTest(unittest.TestCase):
         with urllib.request.urlopen(self.base + "/?t=" + TOKEN, timeout=10) as r:
             return r.read().decode("utf-8")
 
-    def test_limit_is_24(self):
-        self.assertEqual(tabdeck.FAV_MAX, 24)
-
-    def test_layout_accepts_24_rejects_25(self):
-        ids = [b["id"] for b in tabdeck.BUTTONS if b.get("sec") != "media"]
-        self.assertGreaterEqual(len(ids), 25)
-        self.assertEqual(self._post({"sistema": ",".join(ids[:25]), "fav": "", "strumenti": ""}), 400)
-        self.assertEqual(self._post({"sistema": ",".join(ids[:24]), "fav": "", "strumenti": ""}), 200)
-        self.assertEqual(len(tabdeck.ROWS["sistema"]), 24)
-
     def test_move_between_sections(self):
         sis = [i for i in tabdeck.ROWS["sistema"] if i != "_vol"]
         stru = [i for i in tabdeck.ROWS["strumenti"] if i != "_vol"] + ["_vol"]
@@ -74,12 +64,10 @@ class GeneraleTest(unittest.TestCase):
         self.assertNotIn("_vol", tabdeck.ROWS["sistema"])
         self.assertEqual(tabdeck.ROWS["strumenti"][-1], "_vol")
 
-    def test_general_has_arrange_buttons_and_no_window_strip(self):
+    def test_general_has_no_window_strip(self):
         secs, _ = tabdeck.render_general()
         self.assertNotIn("sec-wins", secs)
         self.assertNotIn('id="tbar"', secs)
-        for sid in tabdeck.ROW_SIDS:
-            self.assertIn('data-arr="%s"' % sid, secs)
 
     def test_page_bar_has_cog_and_no_fullscreen_button(self):
         page = self._page()

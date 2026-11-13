@@ -56,18 +56,40 @@ if (navigator.getBattery) {
     p(); b.addEventListener("levelchange", p); b.addEventListener("chargingchange", p);
   });
 }
-/* schermo intero: Chrome lo concede solo dopo un tocco, quindi lo chiediamo al primo tocco */
+/* impostazioni di QUESTO dispositivo (non del PC): schermo intero.
+   Salvate nel browser; se il browser non le conserva valgono i valori predefiniti. */
+var LOCAL = {fs: "on"}, LOCAL_OK = {fs: ["on", "off"]};
+(function () {
+  for (var k in LOCAL) {
+    var v = null;
+    try { v = localStorage.getItem("td_" + k); } catch (e) {}
+    if (v && LOCAL_OK[k].indexOf(v) >= 0) { LOCAL[k] = v; }
+  }
+})();
+function paintLocal() {
+  [].forEach.call(document.querySelectorAll(".lseg"), function (seg) {
+    [].forEach.call(seg.children, function (o) { cls(o, "sel", LOCAL[seg.getAttribute("data-l")] === o.getAttribute("data-v")); });
+  });
+}
+[].forEach.call(document.querySelectorAll(".lseg div"), function (o) {
+  o.addEventListener("click", function () {
+    var k = o.parentNode.getAttribute("data-l"), v = o.getAttribute("data-v");
+    LOCAL[k] = v;
+    try { localStorage.setItem("td_" + k, v); } catch (e) {}
+    if (k === "fs") { if (v === "off") { if (document.fullscreenElement) { document.exitFullscreen(); } } else { goFull(); } }
+    paintLocal();
+  }, false);
+});
+paintLocal();
+/* schermo intero: Chrome lo concede solo dopo un tocco, quindi lo chiediamo al primo tocco (se non e' disattivato) */
 function goFull() {
   var d = document.documentElement;
-  if (!document.fullscreenElement && d.requestFullscreen) {
+  if (LOCAL.fs === "on" && !document.fullscreenElement && d.requestFullscreen) {
     var p = d.requestFullscreen({navigationUI: "hide"});
     if (p && p.catch) { p.catch(function () {}); }
   }
 }
 document.addEventListener("touchend", goFull, true);
-document.getElementById("fs").addEventListener("click", function () {
-  if (document.fullscreenElement) { document.exitFullscreen(); } else { goFull(); }
-});
 function cls(el, c, on) { el.classList[on ? "add" : "remove"](c); }
 function flash(el, c) {
   cls(el, "on", false); cls(el, c, true);

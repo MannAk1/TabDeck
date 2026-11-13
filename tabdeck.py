@@ -469,7 +469,7 @@ for _f in FAVORITES:
 #     {"fav": [id...], "rows": {"sistema": [...], "strumenti": [...]}, "custom": [app...], "keys": [scorciatoie...]}
 # "_vol", "_mic", "_yt" sono i riquadri speciali Volume, Microfono e YouTube (uno solo ciascuno).
 LAYOUT_FILE = os.path.join(DATA_DIR, "layout.json")
-FAV_MAX = 24
+FAV_MAX = 10
 ROW_SIDS = ("avvio", "sistema", "strumenti")
 SPECIALS = ("_vol", "_mic", "_yt")
 ROWS = {"avvio": FAVORITES,
@@ -3263,10 +3263,9 @@ def render_general():
                         '<div class="ggrid">%s</div></div></div>' % "".join(parts))
         else:
             tiles = [row_tile(i) for i in ROWS[sid]]
-        # il pulsante a destra del titolo avvia "Disponi": riquadri trascinabili (le finestre stanno nella fascia a destra)
-        secs.append('<div class="sec sec-%s" data-sid="%s"><div class="sh">%s<button class="arr" data-arr="%s" aria-label="Disponi">'
-                    '&#10021;</button></div><div class="row">%s</div></div>'
-                    % (sid, sid, html.escape(title), sid, "".join(tiles)))
+        # le finestre aperte non stanno piu' qui: sono nella fascia a destra, visibile in ogni sezione
+        secs.append('<div class="sec sec-%s"><div class="sh">%s</div><div class="row">%s</div></div>'
+                    % (sid, html.escape(title), "".join(tiles)))
     return '<div id="secs">%s</div>' % "".join(secs), "".join(pops)
 
 
