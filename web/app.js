@@ -58,8 +58,8 @@ if (navigator.getBattery) {
 }
 /* impostazioni di QUESTO dispositivo (non del PC): schermo intero.
    Salvate nel browser; se il browser non le conserva valgono i valori predefiniti. */
-var LOCAL = {fs: "on", tpside: "right", kb: "on", mb: "right"},
-  LOCAL_OK = {fs: ["on", "off"], tpside: ["right", "left"], kb: ["on", "off"], mb: ["right", "left", "top", "bottom"]};
+var LOCAL = {fs: "on", tpside: "right", kb: "on", mb: "right", fling: "on"},
+  LOCAL_OK = {fs: ["on", "off"], tpside: ["right", "left"], kb: ["on", "off"], mb: ["right", "left", "top", "bottom"], fling: ["on", "off"]};
 (function () {
   for (var k in LOCAL) {
     var v = null;
@@ -1390,14 +1390,14 @@ function flTrack(dy) {   /* chiamata a ogni movimento di scorrimento: media dell
   FL.v = FL.t && dt < 100 ? 0.6 * FL.v + 0.4 * (dy / dt) : dy / dt;
   FL.t = now;
 }
-function flGo() {   /* al rilascio: se si scorreva veloce, continua e rallenta (~0,8 s) */
+function flGo() {   /* al rilascio: se si scorreva veloce, continua e rallenta */
   var v = FL.v;
   flStop();
-  if (Date.now() - FL.t > 80 || Math.abs(v) < 0.25) { FL.t = 0; return; }
+  if (LOCAL.fling === "off" || Date.now() - FL.t > 80 || Math.abs(v) < 0.25) { FL.t = 0; return; }
   FL.t = 0;
   FL.id = setInterval(function () {
     PADQ.w += v * 16 * 6; padFlush();
-    v *= 0.93;
+    v *= 0.87;   /* ~0,4 s: abbastanza per scivolare, poco per saltare un video nei Reels */
     if (Math.abs(v) < 0.03) { flStop(); }
   }, 16);
 }

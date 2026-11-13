@@ -25,6 +25,28 @@ class MouseSmootherTest(unittest.TestCase):
         self.assertLessEqual(len(steps), 12)           # ma finisce in fretta (~50 ms)
         self.assertLess(abs(steps[0][0]), 100)
 
+    def test_spread_follows_how_often_moves_arrive(self):
+        # pacchetti ogni ~60 ms: ognuno si distribuisce su ~60 ms (15 passi da 4 ms), cosi' non ci sono pause
+        t = [0.0]
+        s = tabdeck.MouseSmoother(send=None, now=lambda: t[0])
+        for i in range(4):
+            t[0] = i * 0.06
+            s.move(60, 0)
+            steps = self.drain(s)
+        self.assertEqual(sum(x for x, _ in steps), 60)
+        self.assertGreaterEqual(len(steps), 12)
+        self.assertLessEqual(len(steps), 15)
+        self.assertLessEqual(max(x for x, _ in steps) - min(x for x, _ in steps), 1)   # passi regolari
+
+    def test_spread_is_capped_after_a_pause(self):
+        t = [0.0]
+        s = tabdeck.MouseSmoother(send=None, now=lambda: t[0])
+        s.move(10, 0)
+        self.drain(s)
+        t[0] = 5.0                       # dito fermo a lungo: la prima mossa non deve trascinarsi
+        s.move(40, 0)
+        self.assertLessEqual(len(self.drain(s)), 8)
+
     def test_small_moves_go_at_once(self):
         s = tabdeck.MouseSmoother(send=None)
         s.move(1, 0)

@@ -2296,12 +2296,15 @@ def _mouse(flags, dx=0, dy=0, data=0):
 
 class MouseSmoother:
     """Il tablet manda i movimenti a pacchetti (la rete del hotspot ha ~70 ms di andata e ritorno): invece di un salto
-    unico, ogni pacchetto si distribuisce in piccoli passi ogni ~4 ms. Il totale resta esatto (interi)."""
+    unico, ogni pacchetto si distribuisce in passi regolari ogni ~4 ms, lungo il tempo medio tra un pacchetto e
+    l'altro (cosi' un pacchetto in ritardo non lascia il cursore fermo). Il totale resta esatto (interi)."""
     TICK = 0.004
-    PART = 0.4          # quota del movimento rimasto spedita a ogni passo
+    STEPS_MIN, STEPS_MAX, STEPS_FIRST = 3, 15, 6     # 12..60 ms; la prima mossa dopo una pausa ~24 ms
 
-    def __init__(self, send):
-        self.send = send
+    def __init__(self, send, now=time.monotonic):
+        self.send, self.now = send, now
+        self.last = self.iv = None   # arrivo precedente, intervallo medio tra i pacchetti
+        self.left = 0                # passi rimasti per finire il movimento in sospeso
         self.lock = threading.Lock()
         self.emit = threading.Lock()   # un passo gia' preso e un clic non si scavalcano
         self.px = self.py = 0
@@ -2317,12 +2320,28 @@ class MouseSmoother:
 
     def move(self, dx, dy):
         with self.lock:
+            t = self.now()
+            gap = None if self.last is None else t - self.last
+            if gap is not None and gap < 0.3:
+                self.iv = gap if self.iv is None else 0.7 * self.iv + 0.3 * gap
+            else:
+                self.iv = None                       # dito fermo: si riparte senza ritardo
+            self.last = t
+            n = self.STEPS_FIRST if self.iv is None else int(round(self.iv / self.TICK))
+            self.left = max(self.STEPS_MIN, min(self.STEPS_MAX, n))
             self.px += dx
             self.py += dy
 
     def take(self):
         with self.lock:
-            sx, sy = self._part(self.px, self.PART), self._part(self.py, self.PART)
+            if not (self.px or self.py):
+                return 0, 0
+            n = max(1, self.left)
+            if n == 1:
+                sx, sy = self.px, self.py
+            else:
+                sx, sy = self._part(self.px, 1.0 / n), self._part(self.py, 1.0 / n)
+            self.left = max(1, self.left - 1)
             self.px -= sx
             self.py -= sy
             return sx, sy

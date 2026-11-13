@@ -29,6 +29,7 @@ class TouchpadLayoutTest(unittest.TestCase):
                       self.page)
         self.assertIn('class="lseg" data-l="mb"><div data-v="right">A destra</div><div data-v="left">A sinistra</div>'
                       '<div data-v="top">Sopra</div><div data-v="bottom">Sotto</div></div>', self.page)
+        self.assertIn('class="lseg" data-l="fling"><div data-v="on">Attivo</div><div data-v="off">Disattivo</div>', self.page)
         self.assertIn('class="lseg" data-l="kb"><div data-v="on">Visibile</div><div data-v="off">Nascosta</div>', self.page)
 
 
