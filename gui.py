@@ -54,8 +54,8 @@ class Window:
         self.root = r = tk.Tk()
         r.title("TabDeck")
         r.configure(bg=BG)
-        r.geometry("760x560")
-        r.minsize(680, 500)
+        r.geometry("760x600")
+        r.minsize(680, 540)
         try:
             r.iconbitmap(app.icon_path)
         except tk.TclError:
@@ -70,8 +70,9 @@ class Window:
         r.after(300, self._tick)
 
     # --- costruzione ---
-    def _btn(self, parent, text, cmd, fg=TEXT, bg=PANEL2):
-        b = tk.Label(parent, text=text, fg=fg, bg=bg, font=(FONT, 10, "bold"), padx=12, pady=6, cursor="hand2")
+    def _btn(self, parent, text, cmd, fg=TEXT, bg=PANEL2, big=False):
+        b = tk.Label(parent, text=text, fg=fg, bg=bg, font=(FONT, 12 if big else 10, "bold"), padx=18 if big else 12,
+                     pady=10 if big else 6, cursor="hand2")
         b.bind("<Button-1>", lambda e: cmd())
         b.bind("<Enter>", lambda e: b.configure(bg=LINE))
         b.bind("<Leave>", lambda e: b.configure(bg=bg))
@@ -102,8 +103,8 @@ class Window:
         row.pack(fill="x")
         self._btn(row, "Copia link", self.copy_link).pack(side="left")
         self._btn(row, "Nuovo link", self.new_link).pack(side="left", padx=(6, 0))
-        self.openpc = self._btn(left, "Apri TabDeck sul PC", self.open_page, fg=AMBER)
-        self.openpc.pack(anchor="w", pady=(6, 0))
+        self.openpc = self._btn(left, "Apri TabDeck sul PC", self.open_page, fg=AMBER, big=True)
+        self.openpc.pack(fill="x", pady=(8, 0))
 
         right = tk.Frame(body, bg=PANEL, padx=14, pady=12)
         right.pack(side="left", fill="both", expand=True, padx=(12, 0))
@@ -118,9 +119,9 @@ class Window:
         # annulla: torna alla configurazione di prima (pulsanti, scorciatoie, impostazioni), un passo per volta
         und = tk.Frame(r, bg=PANEL, padx=14, pady=8)
         und.pack(fill="x", padx=16, pady=(0, 10))
-        self.undo_btn = self._btn(und, "Annulla ultima modifica", self.undo)
+        self.undo_btn = self._btn(und, "Annulla ultima modifica", self.undo, big=True)
         self.undo_btn.pack(side="left")
-        self.undo_lbl = tk.Label(und, text="", fg=DIM, bg=PANEL, font=(FONT, 10), anchor="w")
+        self.undo_lbl = tk.Label(und, text="", fg=DIM, bg=PANEL, font=(FONT, 11), anchor="w")
         self.undo_lbl.pack(side="left", fill="x", expand=True, padx=(10, 0))
         self._undone = None        # (etichetta, momento): "Annullato: ..." resta qualche secondo
 
