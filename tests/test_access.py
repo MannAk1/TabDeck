@@ -161,6 +161,25 @@ class AccessTest(unittest.TestCase):
         with open(tabdeck.TOKEN_FILE, encoding="utf-8") as f:
             self.assertEqual(f.read().strip(), new)
 
+    def test_pc_link_is_approved_on_this_pc(self):
+        # "Apri TabDeck sul PC": stesso IP del server + token giusto + pc=1 -> entra senza codice, come "Questo PC"
+        self.store.set_require(True)
+        st, body, cookies = self.req("/?pc=1")
+        self.assertEqual(st, 200)
+        dev = self.dev_from(cookies)
+        self.assertTrue(self.store.is_approved(dev))
+        self.assertEqual([d["name"] for d in self.store.approved() if d["id"] == dev], ["Questo PC"])
+
+    def test_pc_link_needs_the_token(self):
+        self.store.set_require(True)
+        self.assertEqual(self.req("/?pc=1", token=None)[0], 403)
+        self.assertEqual(self.store.approved(), [])
+
+    def test_pc_admit_only_from_the_pc_itself(self):
+        self.assertTrue(tabdeck.pc_admit("192.168.137.1", "192.168.137.1", {"pc": ["1"]}))
+        self.assertFalse(tabdeck.pc_admit("192.168.137.50", "192.168.137.1", {"pc": ["1"]}))
+        self.assertFalse(tabdeck.pc_admit("192.168.137.1", "192.168.137.1", {}))
+
     def test_no_token_no_device_is_403(self):
         self.assertEqual(self.req("/ping", token=None)[0], 403)
 

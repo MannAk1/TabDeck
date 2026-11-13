@@ -266,16 +266,73 @@ img{pointer-events:none;-webkit-user-drag:none}
 #dcum.off{background:var(--err)}
 /* scheda touchpad */
 #pad{padding:8px;gap:10px}
-#tpwrap{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+/* [tastiera] [touchpad] [tasti del mouse]; posizione della tastiera con body.kbp-* (left predefinito). Margini e non gap: Chrome 81 */
+#pad{gap:0}
+#tpwrap{flex:1;min-width:0;min-height:0;display:flex;gap:0;order:3}
+#kb{order:1;margin-right:10px}
+#kbshow{order:2;display:none;flex:0 0 34px;margin-right:10px;align-items:center;justify-content:center;
+ background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);color:var(--amber);font-size:12px;font-weight:bold;letter-spacing:.2em;text-transform:uppercase}
+#kbshow span{writing-mode:vertical-rl;transform:rotate(180deg)}
+body.kb-off #kb{display:none}
+body.kb-off #kbshow{display:flex}
+#kb>.sh{flex:none;margin-bottom:6px}   /* la riga del titolo contiene tutto il pulsante: niente sovrapposizioni */
+#kbx{order:2;flex:none;padding:9px 18px;margin:0;color:var(--amber);font-size:13px;letter-spacing:.14em;
+ background:var(--panel2);box-shadow:inset 0 0 0 1px var(--amber2)}
+body.kbp-right #tpwrap,body.kbp-bottom #tpwrap{order:1}
+body.kbp-right #kbshow{order:2;margin:0 0 0 10px}
+body.kbp-right #kb{order:3;margin:0 0 0 10px}
+body.kbp-top #pad,body.kbp-bottom #pad{flex-direction:column}
+body.kbp-top #kb,body.kbp-bottom #kb{flex:0 0 40%;margin:0 0 8px}
+body.kbp-top #kbshow{flex:0 0 30px;margin:0 0 8px}
+body.kbp-bottom #kbshow{order:2;flex:0 0 30px;margin:8px 0 0}
+body.kbp-bottom #kb{order:3;margin:8px 0 0}
+body.kbp-top #kbshow span,body.kbp-bottom #kbshow span{writing-mode:horizontal-tb;transform:none}
+/* tipo di tastiera (body.kbt-*): completa (#fkb, disegnata dalla pagina), attuale, essenziali */
+#fkb{display:none;flex:1;min-height:0;flex-direction:column}
+body.kbt-full #fkb{display:flex}
+body.kbt-full #kin,body.kbt-full #keys,body.kbt-ess #kin{display:none}
+body.kbt-full.kbp-left #kb,body.kbt-full.kbp-right #kb{flex:0 0 56%}
+body.kbt-full.kbp-top #kb,body.kbt-full.kbp-bottom #kb{flex:0 0 48%}
+.fr{flex:1;min-height:0;display:flex}
+.fr+.fr{margin-top:5px}
+.fk{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;margin-left:5px;font-size:16px;font-weight:bold;
+ background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line),inset 0 -2px 0 var(--line);color:var(--text);overflow:hidden;white-space:nowrap}
+.fk:first-child{margin-left:0}
+.fk.fs{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.fk.on{background:#3a3f2a}
+.fk.arm{box-shadow:inset 0 0 0 2px var(--amber);color:var(--amber)}
+/* essenziali: Esc Tab Bksp Canc / frecce, Invio, Spazio */
+body.kbt-ess #keys{grid-template-rows:repeat(3,1fr);grid-auto-rows:0}
+body.kbt-ess #keys .kk{display:none}
+body.kbt-ess #keys .kk[data-k="ESC"]{display:flex;grid-area:1/1}
+body.kbt-ess #keys .kk[data-k="TAB"]{display:flex;grid-area:1/2}
+body.kbt-ess #keys .kk[data-k="BACKSPACE"]{display:flex;grid-area:1/3}
+body.kbt-ess #keys .kk[data-k="DELETE"]{display:flex;grid-area:1/4}
+body.kbt-ess #keys .kk[data-k="UP"]{display:flex;grid-area:2/2}
+body.kbt-ess #keys .kk[data-k="ENTER"]{display:flex;grid-area:2/4}
+body.kbt-ess #keys .kk[data-k="LEFT"]{display:flex;grid-area:3/1}
+body.kbt-ess #keys .kk[data-k="DOWN"]{display:flex;grid-area:3/2}
+body.kbt-ess #keys .kk[data-k="RIGHT"]{display:flex;grid-area:3/3}
+body.kbt-ess #keys .kk[data-k="SPACE"]{display:flex;grid-area:3/4}
+/* tasti del mouse rispetto al touchpad (body.mb-*): a destra (predefinito), a sinistra, sopra, sotto */
+body.mb-left #tpb{order:-1;margin:0 8px 0 0}
+body.mb-top #tpwrap,body.mb-bottom #tpwrap{flex-direction:column}
+body.mb-top #tpb,body.mb-bottom #tpb{flex:0 0 64px;flex-direction:row;margin:8px 0 0}
+body.mb-top #tpb{order:-1;margin:0 0 8px}
+body.mb-top #tpb .tb+.tb,body.mb-bottom #tpb .tb+.tb{margin:0 0 0 8px}
 #tp{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;touch-action:none;
  background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);
  background-image:linear-gradient(rgba(245,197,24,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(245,197,24,.05) 1px,transparent 1px);background-size:24px 24px}
 #tp span{max-width:80%;font-size:13px;line-height:1.6;color:var(--dim);text-align:center;letter-spacing:.04em;pointer-events:none}
 #tp.on{box-shadow:inset 0 0 0 2px var(--amber2)}
-#tpb{flex:0 0 64px;display:flex;gap:8px}
+#tpb{flex:0 0 76px;display:flex;flex-direction:column;gap:0;margin-left:8px}
+#tpb .tb{flex:1;min-height:0;font-size:12px;letter-spacing:.08em}
+#tpb .tb+.tb{margin-top:8px}
+/* rotellina: righe orizzontali come una rotella vera; strisciare = scorrere, tocco = clic centrale */
+#tpb .tw{flex:1.2;color:var(--dim);background-image:repeating-linear-gradient(0deg,transparent 0,transparent 9px,rgba(245,197,24,.12) 9px,rgba(245,197,24,.12) 10px)}
 .tb{flex:2;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;letter-spacing:.14em;text-transform:uppercase;
  background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line),inset 0 -3px 0 var(--edit);color:var(--text)}
-.tb[data-b="m"]{flex:1}
+.tb[data-b="m"]{flex:1.2}
 .tb.on,.kk.on{background:#3a3f2a}
 #kb{flex:0 0 330px;display:flex;flex-direction:column;gap:8px;min-height:0}
 #kin{flex:0 0 52px;width:100%;padding:0 12px;border:0;outline:none;font-size:18px;font-family:inherit;color:var(--text);
@@ -608,10 +665,20 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  #dcmem{max-height:112px}
  #dcobtn{width:100%}
  /* Touchpad: tastiera sopra, pad in basso (vicino al pollice) */
- #pad{flex-direction:column-reverse}
+ #pad{flex-direction:column}
+ #pad>#kb,#pad>#kbshow,#pad>#tpwrap{order:0;margin:0 0 8px}
+ #pad>#tpwrap{margin:0}
+ #kbshow{flex:0 0 30px}
+ #kbshow span{writing-mode:horizontal-tb;transform:none}
+ #tpb{flex:0 0 68px}
  #tpwrap{flex:1;min-height:0}
  #kb{flex:0 0 auto}
  #keys{grid-auto-rows:46px}
+ body.kbp-bottom #pad>#tpwrap{order:1;margin:0 0 8px}
+ body.kbp-bottom #pad>#kbshow{order:2}
+ body.kbp-bottom #pad>#kb{order:3;margin:0}
+ body.kbt-full #fkb{flex:none;height:230px}
+ body.kbt-ess #keys{grid-template-rows:repeat(3,46px)}
  /* Monitor: schede su 2 colonne */
  #mon.show{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch}
  .mrow{flex-wrap:wrap;margin-bottom:8px}
@@ -689,7 +756,7 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  #dcvc{flex:0 0 250px}
  #dcbtn{flex:0 0 52px}
  #dcmic{flex:0 0 36px}
- #tpb{flex:0 0 44px}
+ #tpb{flex:0 0 64px}
  #kb{flex:0 0 250px}
  #kin{flex:0 0 40px}
  .mv{font-size:24px}

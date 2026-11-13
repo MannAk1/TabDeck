@@ -31,6 +31,14 @@ class DeviceStoreTest(unittest.TestCase):
         os.remove(self.path) if os.path.exists(self.path) else None
         self.assertTrue(self.store(fresh=True).require)
 
+    def test_admit_approves_directly_with_name(self):
+        s = self.on()
+        d, i = s.admit(None, "1.2.3.4", UA_WIN, "Questo PC")
+        self.assertEqual(d, "ok")
+        self.assertTrue(s.is_approved(i))
+        self.assertEqual(s.pending(), [])
+        self.assertEqual([x["name"] for x in s.approved()], ["Questo PC"])
+
     def test_require_off_auto_approves(self):
         s = self.store(fresh=False)
         d, i = s.access(None, "1.2.3.4", UA_TAB)

@@ -58,15 +58,29 @@ if (navigator.getBattery) {
 }
 /* impostazioni di QUESTO dispositivo (non del PC): schermo intero.
    Salvate nel browser; se il browser non le conserva valgono i valori predefiniti. */
-var LOCAL = {fs: "on"}, LOCAL_OK = {fs: ["on", "off"]};
+var LOCAL = {fs: "on", kbpos: "left", kbtype: "std", kb: "on", mb: "right", fling: "on"},
+  LOCAL_OK = {fs: ["on", "off"], kbpos: ["left", "right", "top", "bottom"], kbtype: ["full", "std", "ess"], kb: ["on", "off"],
+              mb: ["right", "left", "top", "bottom"], fling: ["on", "off"]};
 (function () {
   for (var k in LOCAL) {
     var v = null;
     try { v = localStorage.getItem("td_" + k); } catch (e) {}
     if (v && LOCAL_OK[k].indexOf(v) >= 0) { LOCAL[k] = v; }
   }
+  try {   /* vecchia opzione "Touchpad: A sinistra" = tastiera a destra */
+    if (localStorage.getItem("td_tpside") === "left" && !localStorage.getItem("td_kbpos")) { LOCAL.kbpos = "right"; }
+  } catch (e) {}
 })();
+function setLocal(k, v) {
+  LOCAL[k] = v;
+  try { localStorage.setItem("td_" + k, v); } catch (e) {}
+  paintLocal();
+}
 function paintLocal() {
+  ["left", "right", "top", "bottom"].forEach(function (p) { cls(document.body, "kbp-" + p, LOCAL.kbpos === p); });
+  ["full", "std", "ess"].forEach(function (t) { cls(document.body, "kbt-" + t, LOCAL.kbtype === t); });
+  cls(document.body, "kb-off", LOCAL.kb === "off");
+  ["left", "top", "bottom"].forEach(function (m) { cls(document.body, "mb-" + m, LOCAL.mb === m); });
   [].forEach.call(document.querySelectorAll(".lseg"), function (seg) {
     [].forEach.call(seg.children, function (o) { cls(o, "sel", LOCAL[seg.getAttribute("data-l")] === o.getAttribute("data-v")); });
   });
@@ -74,10 +88,8 @@ function paintLocal() {
 [].forEach.call(document.querySelectorAll(".lseg div"), function (o) {
   o.addEventListener("click", function () {
     var k = o.parentNode.getAttribute("data-l"), v = o.getAttribute("data-v");
-    LOCAL[k] = v;
-    try { localStorage.setItem("td_" + k, v); } catch (e) {}
+    setLocal(k, v);
     if (k === "fs") { if (v === "off") { if (document.fullscreenElement) { document.exitFullscreen(); } } else { goFull(); } }
-    paintLocal();
   }, false);
 });
 paintLocal();
@@ -220,6 +232,7 @@ function ping() {
     if (ok) {
       try {
         var s = JSON.parse(x.responseText);
+        if (s.rev !== undefined) { cfgSeen(s.rev); }
         if (s.hd) { applyCd(s.hd); }
         if (s.run) { renderRun(s.run); }
         if (s.wins) { renderWins(s.wins); }
@@ -231,6 +244,16 @@ function ping() {
     if (ok !== online) { online = ok; status(ok ? "ok" : "err", ok ? "connesso" : "offline, riprovo..."); }
   };
   try { x.send(); } catch (e) { online = false; }
+}
+/* configurazione cambiata sul PC (es. "Annulla ultima modifica"): Generale e impostazioni si rifanno sul posto */
+var cfgRev = null;
+function cfgSeen(rev) {
+  if (cfgRev === null) { cfgRev = rev; return; }
+  if (rev === cfgRev) { return; }
+  cfgRev = rev;
+  refreshGeneral(function () {
+    if (document.body.classList.contains("setopen") && document.getElementById("sp_fav").classList.contains("show")) { favLoad(); }
+  });
 }
 var pingN = 0;
 ping();
@@ -441,6 +464,8 @@ function bindPop(p) {
 function refreshGeneral(done) {
   dcGet("/general", function (code, j) {
     if (code !== 200 || !j || typeof j.secs !== "string") { location.reload(); return; }   /* ripiego sicuro */
+    if (j.rev !== undefined) { cfgRev = j.rev; }
+    if (j.settings) { SETTINGS = j.settings; paintSettings(); }
     var grid = document.getElementById("grid"), tmp = document.createElement("div"), fresh = [grid], nodes, ref;
     grid.innerHTML = j.secs;
     tmp.innerHTML = j.pops;
@@ -588,8 +613,11 @@ function paintSettings() {
   o.addEventListener("click", function () {
     var k = o.parentNode.getAttribute("data-k"), v = o.getAttribute("data-v"), old = SETTINGS[k];
     SETTINGS[k] = v; paintSettings();
-    post("/settings", k + "=" + encodeURIComponent(v), function (code) {
-      if (code === 200) { status("ok", "Impostazione salvata"); }
+    post("/settings", k + "=" + encodeURIComponent(v), function (code, txt) {
+      if (code === 200) {
+        status("ok", "Impostazione salvata");
+        try { cfgRev = JSON.parse(txt).rev; } catch (e) {}   /* modifica nostra: niente aggiornamento doppio */
+      }
       else { SETTINGS[k] = old; paintSettings(); status("err", code === 0 ? "PC non raggiungibile" : "Errore " + code); }
     });
   }, false);
@@ -700,24 +728,45 @@ function edSelect(i) {
   edPaintBar();
 }
 function edReindex() { [].forEach.call(favrow.children, function (el, i) { el.setAttribute("data-i", i); }); }
+var favNoClick = false;   /* il clic che chiude un trascinamento col mouse non e' una selezione */
 favrow.addEventListener("click", function (e) {
+  if (favNoClick) { favNoClick = false; return; }
   var fi = e.target.closest(".fi"); if (fi && ED) { edSelect(+fi.getAttribute("data-i")); }
 }, false);
 /* trascinare un riquadro della riga lo sposta (le frecce restano). Un tocco senza movimento = selezione, come prima.
    Il dito su un riquadro non fa scorrere le impostazioni: per scorrere si tocca fuori dalla riga. */
 (function () {
-  var d = null;
-  favrow.addEventListener("touchstart", function (e) {
-    var fi = e.target.closest && e.target.closest(".fi"), p = e.touches[0], r;
-    if (d && d.g) { return; }   /* trascinamento in corso: il dito in piu' si ignora */
-    if (!fi || !ED || e.touches.length !== 1) { d = null; return; }
+  var d = null, tT = 0;
+  function start(target, x, y) {
+    var fi = target.closest && target.closest(".fi"), r;
+    if (!fi || !ED) { d = null; return; }
     r = fi.getBoundingClientRect();
-    d = {el: fi, x0: p.clientX, y0: p.clientY, dx: p.clientX - r.left, dy: p.clientY - r.top, w: r.width, h: r.height, g: null};
+    d = {el: fi, x0: x, y0: y, dx: x - r.left, dy: y - r.top, w: r.width, h: r.height, g: null};
+  }
+  favrow.addEventListener("touchstart", function (e) {
+    tT = Date.now();
+    if (d && d.g) { return; }   /* trascinamento in corso: il dito in piu' si ignora */
+    if (e.touches.length !== 1) { d = null; return; }
+    start(e.target, e.touches[0].clientX, e.touches[0].clientY);
   }, false);
   favrow.addEventListener("touchmove", function (e) {
     if (!d) { return; }
     if (e.cancelable) { e.preventDefault(); }
-    var p = e.touches[0], t, o, r;
+    move(e.touches[0]);
+  }, false);
+  favrow.addEventListener("mousedown", function (e) {
+    if (e.button !== 0 || Date.now() - tT < 800 || !(e.target.closest && e.target.closest(".fi"))) { return; }
+    e.preventDefault();   /* niente trascinamento dell'immagine ne' selezione del testo */
+    start(e.target, e.clientX, e.clientY);
+  }, false);
+  document.addEventListener("mousemove", function (e) { if (d) { move(e); } }, false);
+  document.addEventListener("mouseup", function () {
+    if (!d) { return; }
+    if (d.g) { favNoClick = true; setTimeout(function () { favNoClick = false; }, 0); }
+    end(null);
+  }, false);
+  function move(p) {
+    var t, o, r;
     if (!d.g) {
       if (Math.abs(p.clientX - d.x0) < 8 && Math.abs(p.clientY - d.y0) < 8) { return; }
       d.g = d.el.cloneNode(true); d.g.id = "fghost"; d.g.style.width = d.w + "px"; d.g.style.height = d.h + "px";
@@ -729,7 +778,7 @@ favrow.addEventListener("click", function (e) {
     if (!o || o === d.el) { return; }
     r = o.getBoundingClientRect();
     favrow.insertBefore(d.el, p.clientX < r.left + r.width / 2 ? o : o.nextSibling);
-  }, false);
+  }
   function end(e) {
     if (!d) { return; }
     var moved = !!d.g, L, sel;
@@ -1322,16 +1371,16 @@ function loadAudio() {
 setInterval(function () { if (curTab === "mix" && !document.hidden) { loadAudio(); } }, 1500);
 setInterval(function () { if (curTab === "mix" && NP.play) { paintNP(); } }, 1000);
 /* scheda Touchpad: movimenti accumulati e spediti con al massimo una richiesta in volo (si adatta alla rete) */
-var PADQ = {dx: 0, dy: 0, w: 0, hw: 0, b: [], busy: false}, PAD_SPEED = {slow: 1.3, med: 2.1, fast: 3.2};
+var PADQ = {dx: 0, dy: 0, w: 0, hw: 0, b: [], busy: 0}, PAD_SPEED = {slow: 1.6, med: 2.6, fast: 3.8}, PAD_FLIGHT = 3;
 function padFlush() {
   var q = PADQ;
-  if (q.busy) { return; }
+  if (q.b.length ? q.busy > 0 : q.busy >= PAD_FLIGHT) { return; }   /* un clic parte solo dopo i movimenti prima di lui */
   var dx = Math.round(q.dx), dy = Math.round(q.dy), w = Math.round(q.w), hw = Math.round(q.hw);
   if (!dx && !dy && !w && !hw && !q.b.length) { return; }
   var body = "dx=" + dx + "&dy=" + dy + "&w=" + w + "&hw=" + hw + "&b=" + q.b.join(",");
-  q.dx -= dx; q.dy -= dy; q.w -= w; q.hw -= hw; q.b = []; q.busy = true;
+  q.dx -= dx; q.dy -= dy; q.w -= w; q.hw -= hw; q.b = []; q.busy++;
   post("/mouse", body, function (code) {
-    q.busy = false;
+    q.busy--;
     if (code !== 200) { status("err", code === 0 ? "PC non raggiungibile" : code === 500 ? "Windows ha bloccato il mouse (finestra admin?)" : "Errore " + code); }
     padFlush();
   });
@@ -1339,6 +1388,24 @@ function padFlush() {
 /* la tastiera Android chiusa col tasto Indietro lascia il campo attivo: toccando il touchpad si riaprirebbe */
 function kBlur() { var k = document.getElementById("kin"); if (document.activeElement === k) { k.blur(); } }
 function padBtn(b) { PADQ.b.push(b); padFlush(); }
+var FL = {v: 0, t: 0, id: null};   /* v = velocita' dello scorrimento (px/ms), t = ultimo movimento */
+function flStop() { if (FL.id) { clearInterval(FL.id); FL.id = null; } }
+function flTrack(dy) {   /* chiamata a ogni movimento di scorrimento: media della velocita' recente */
+  var now = Date.now(), dt = Math.max(8, now - FL.t);
+  FL.v = FL.t && dt < 100 ? 0.6 * FL.v + 0.4 * (dy / dt) : dy / dt;
+  FL.t = now;
+}
+function flGo() {   /* al rilascio: se si scorreva veloce, continua e rallenta */
+  var v = FL.v;
+  flStop();
+  if (LOCAL.fling === "off" || Date.now() - FL.t > 80 || Math.abs(v) < 0.25) { FL.t = 0; return; }
+  FL.t = 0;
+  FL.id = setInterval(function () {
+    PADQ.w += v * 16 * 6; padFlush();
+    v *= 0.87;   /* ~0,4 s: abbastanza per scivolare, poco per saltare un video nei Reels */
+    if (Math.abs(v) < 0.03) { flStop(); }
+  }, 16);
+}
 (function () {
   var tp = $("tp"), pts = {}, maxN = 0, t0 = 0, travel = 0;
   function k() { return PAD_SPEED[SETTINGS.pad] || 2.1; }
@@ -1350,7 +1417,8 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
   tp.addEventListener("touchstart", function (e) {
     e.preventDefault();
     kBlur();
-    if (!maxN) { t0 = Date.now(); travel = 0; }
+    flStop();
+    if (!maxN) { t0 = Date.now(); travel = 0; FL.t = 0; }
     pts = snap(e); maxN = Math.max(maxN, e.targetTouches.length); cls(tp, "on", true);
   }, {passive: false});
   tp.addEventListener("touchmove", function (e) {
@@ -1361,10 +1429,11 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
     if (!n) { return; }
     sx /= n; sy /= n; travel += Math.abs(sx) + Math.abs(sy);
     if (e.targetTouches.length === 1 && maxN === 1) {
-      d = Math.abs(sx) + Math.abs(sy); f = k() * (d > 12 ? 1.8 : d > 5 ? 1.3 : 1);  /* un po' di accelerazione */
+      f = k();   /* niente accelerazione: la stessa strisciata sposta sempre di quanto */
       PADQ.dx += sx * f; PADQ.dy += sy * f;
     } else if (e.targetTouches.length >= 2) {
       PADQ.w += sy * 6; PADQ.hw -= sx * 6;   /* scorrimento "naturale" come sul telefono */
+      flTrack(sy);
     }
     padFlush();
   }, {passive: false});
@@ -1374,12 +1443,37 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
     if (e.targetTouches.length) { return; }
     cls(tp, "on", false);
     if (travel < 12 && Date.now() - t0 < 300 && !multiActive) { padBtn(maxN >= 3 ? "mc" : maxN === 2 ? "rc" : "lc"); }
+    else if (maxN >= 2) { flGo(); }
     maxN = 0;
   }
   tp.addEventListener("touchend", end, {passive: false});
   tp.addEventListener("touchcancel", end, {passive: false});
   /* pulsanti: giu' al tocco, su al rilascio (cosi' si puo' trascinare) */
-  [].forEach.call(document.getElementsByClassName("tb"), function (el) {
+  (function () {
+    var w = document.querySelector("#tpb .tw"), y = null, moved = 0, wT = 0;
+    w.addEventListener("touchstart", function (e) {
+      if (e.cancelable) { e.preventDefault(); }
+      flStop(); FL.t = 0;
+      kBlur(); wT = Date.now(); y = e.touches[0].clientY; moved = 0; cls(w, "on", true);
+    }, {passive: false});
+    w.addEventListener("touchmove", function (e) {
+      if (e.cancelable) { e.preventDefault(); }
+      if (y === null) { return; }
+      var ny = e.touches[0].clientY, dy = ny - y;
+      y = ny; moved += Math.abs(dy);
+      if (moved > 6) { PADQ.w += dy * 6; padFlush(); flTrack(dy); }
+    }, {passive: false});
+    function wend(e) {
+      if (e.cancelable) { e.preventDefault(); }
+      if (y !== null && moved <= 6) { padBtn("mc"); } else if (y !== null) { flGo(); }
+      y = null; cls(w, "on", false);
+    }
+    w.addEventListener("touchend", wend, {passive: false});
+    w.addEventListener("touchcancel", function () { y = null; cls(w, "on", false); }, false);
+    w.addEventListener("click", function () { if (y === null && Date.now() - wT > 800) { padBtn("mc"); } }, false);   /* col mouse sul PC */
+    w.addEventListener("wheel", function (e) { e.preventDefault(); PADQ.w -= e.deltaY; padFlush(); }, {passive: false});
+  })();
+  [].forEach.call(document.querySelectorAll("#tpb .tb:not(.tw)"), function (el) {
     var b = el.getAttribute("data-b"), down = false;
     function dn(e) { if (e.cancelable) { e.preventDefault(); } kBlur(); if (!down) { down = true; cls(el, "on", true); padBtn(b + "d"); } }
     function up(e) { if (e.cancelable) { e.preventDefault(); } if (down) { down = false; cls(el, "on", false); padBtn(b + "u"); } }
@@ -1391,6 +1485,9 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
     el.addEventListener("mouseleave", up, false);
   });
 })();
+/* pannello tastiera: "Nascondi" lo toglie (il touchpad si allarga), la linguetta lo riporta. Ricordato per dispositivo */
+$("kbx").addEventListener("click", function () { kBlur(); setLocal("kb", "off"); }, false);
+$("kbshow").addEventListener("click", function () { setLocal("kb", "on"); }, false);
 /* tastiera: il campo tiene uno spazio "sentinella" all'inizio, cosi' anche la cancellazione a campo vuoto si vede;
    a ogni modifica si spedisce la differenza (backspace + testo nuovo), in ordine, una richiesta alla volta */
 var KQ = [], kBusy = false, kin = $("kin"), kSent = " ";
@@ -1418,7 +1515,7 @@ kin.addEventListener("keydown", function (e) {
   if (e.keyCode === 13) { e.preventDefault(); kPush("/key", "k=ENTER"); kReset(); }
 }, false);
 kin.addEventListener("focus", function () { setTimeout(function () { try { kin.setSelectionRange(kin.value.length, kin.value.length); } catch (e) {} }, 0); }, false);
-[].forEach.call(document.getElementsByClassName("kk"), function (el) {
+function bindTap(el, fn) {
   var live = false;
   var kx = 0, ky = 0;
   el.addEventListener("touchstart", function (e) { live = true; kx = e.touches[0].clientX; ky = e.touches[0].clientY; cls(el, "on", true); }, {passive: true});
@@ -1429,11 +1526,87 @@ kin.addEventListener("focus", function () { setTimeout(function () { try { kin.s
   el.addEventListener("touchend", function (e) {
     if (e.cancelable) { e.preventDefault(); }   /* la tastiera Android resta aperta */
     cls(el, "on", false);
-    if (live && !multiActive) { kPush("/key", "k=" + encodeURIComponent(el.getAttribute("data-k"))); }
+    if (live && !multiActive) { fn(); }
     live = false;
   }, false);
-  el.addEventListener("mousedown", function (e) { e.preventDefault(); kPush("/key", "k=" + encodeURIComponent(el.getAttribute("data-k"))); }, false);
+  el.addEventListener("mousedown", function (e) { e.preventDefault(); fn(); }, false);
+}
+[].forEach.call(document.getElementsByClassName("kk"), function (el) {
+  bindTap(el, function () { kPush("/key", "k=" + encodeURIComponent(el.getAttribute("data-k"))); });
 });
+/* tastiera completa (Impostazioni > Touchpad > Tastiera: tipo). Le lettere e i simboli si scrivono come caratteri
+   (qualsiasi layout del PC); con Ctrl/Alt/Win diventano combinazioni (Ctrl+C). I modificatori valgono per un tasto. */
+var FK = {mods: {}, caps: false, sym: false, shT: 0, els: []};
+var FK_ROWS = [
+  [["k", "ESC", "Esc", 1.3], "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "'", "\u00ec", ["k", "BACKSPACE", "&larr;", 1.6]],
+  [["k", "TAB", "Tab", 1.5], "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "\u00e8", "+"],
+  [["s", "", "?#", 1.5], "a", "s", "d", "f", "g", "h", "j", "k", "l", "\u00f2", "\u00e0", "\u00f9", ["k", "ENTER", "Invio", 1.6]],
+  [["m", "SHIFT", "Shift", 1.8], "z", "x", "c", "v", "b", "n", "m", ",", ".", "-", ["k", "UP", "&#9650;"], ["k", "DELETE", "Canc"]],
+  [["m", "CTRL", "Ctrl", 1.4], ["m", "WIN", "Win", 1.2], ["m", "ALT", "Alt", 1.2], ["k", "SPACE", "Spazio", 6],
+   ["k", "LEFT", "&#9664;"], ["k", "DOWN", "&#9660;"], ["k", "RIGHT", "&#9654;"]]
+];
+var FK_SHIFT = {"1": "!", "2": "\"", "3": "\u00a3", "4": "$", "5": "%", "6": "&", "7": "/", "8": "(", "9": ")", "0": "=", "'": "?",
+  "\u00ec": "^", "\u00e8": "\u00e9", "+": "*", "\u00f2": "\u00e7", "\u00e0": "\u00b0", "\u00f9": "\u00a7", ",": ";", ".": ":", "-": "_"};
+var FK_SYM = {q: "@", w: "#", e: "\u20ac", r: "[", t: "]", y: "{", u: "}", i: "<", o: ">", p: "\\", "\u00e8": "|", "+": "~",
+  a: "`", s: "\u00b4", d: "&", f: "*", g: "_", h: "=", j: "%", k: ";", l: ":", "\u00f2": "!", "\u00e0": "?", "\u00f9": "\"",
+  z: "\u00ab", x: "\u00bb", c: "\u00b0", v: "\u00a7", b: "\u00a3", n: "$", m: "^"};
+function fkChar(c) {
+  var up = !!FK.mods.SHIFT !== (FK.caps && /^[a-z\u00e0-\u00f9]$/.test(c));
+  if (FK.sym && FK_SYM[c]) { return FK_SYM[c]; }
+  if (FK.mods.SHIFT) { return FK_SHIFT[c] || c.toUpperCase(); }
+  return up ? c.toUpperCase() : c;
+}
+function fkMods() { return ["CTRL", "ALT", "SHIFT", "WIN"].filter(function (m) { return FK.mods[m]; }); }
+function fkPaint() {
+  FK.els.forEach(function (it) {
+    var d = it.d;
+    if (typeof d === "string") { it.el.textContent = fkChar(d); return; }
+    if (d[0] === "m") { cls(it.el, "arm", !!FK.mods[d[1]] || (d[1] === "SHIFT" && FK.caps)); }
+    if (d[0] === "s") { cls(it.el, "arm", FK.sym); }
+  });
+}
+function fkPress(d) {
+  var m, now;
+  if (typeof d === "string") {
+    m = fkMods().filter(function (x) { return x !== "SHIFT"; });
+    if (m.length && /^[a-z0-9]$/.test(d)) { kPush("/key", "k=" + fkMods().concat([d.toUpperCase()]).join("+")); }
+    else { kPush("/type", "bs=0&t=" + encodeURIComponent(fkChar(d))); }
+    FK.mods = {};
+  } else if (d[0] === "k") {
+    kPush("/key", "k=" + fkMods().slice(0, 3).concat([d[1]]).join("+"));
+    FK.mods = {};
+  } else if (d[0] === "s") {
+    FK.sym = !FK.sym;
+  } else if (d[1] === "SHIFT") {
+    now = Date.now();
+    if (FK.mods.SHIFT && now - FK.shT < 400) { FK.mods.SHIFT = false; FK.caps = true; }
+    else if (FK.caps) { FK.caps = false; }
+    else { FK.mods.SHIFT = !FK.mods.SHIFT; }
+    FK.shT = now;
+  } else if (d[1] === "WIN" && FK.mods.WIN) {
+    FK.mods = {}; kPush("/key", "k=WIN");   /* Win due volte = menu Start */
+  } else {
+    FK.mods[d[1]] = !FK.mods[d[1]];
+  }
+  fkPaint();
+}
+(function () {
+  var box = $("fkb");
+  FK_ROWS.forEach(function (row) {
+    var r = document.createElement("div");
+    r.className = "fr";
+    row.forEach(function (d) {
+      var el = document.createElement("div");
+      el.className = "fk" + (typeof d === "string" ? "" : " fs");
+      if (typeof d !== "string") { el.innerHTML = d[2]; if (d[3]) { el.style.flex = d[3]; } }
+      bindTap(el, function () { fkPress(d); });
+      FK.els.push({el: el, d: d});
+      r.appendChild(el);
+    });
+    box.appendChild(r);
+  });
+  fkPaint();
+})();
 /* scheda Monitor: valori ogni 1,5 s; lo storico (60 s) arriva alla prima richiesta, poi si accoda in locale */
 var MH = null, monBusy = false, CORES_N = -1;
 function rate(b) {

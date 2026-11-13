@@ -43,6 +43,14 @@ averlo sempre a portata, nel browser che si è aperto: menu ⋮ (o Condividi su 
 Sul telefono: le **finestre aperte** del PC sono nella fascia a destra (tocco = la porta davanti; la freccia in alto
 mostra i titoli). In basso a destra: ⚙ impostazioni e il quadrato delle sezioni. I pulsanti di Generale si
 scelgono e si riordinano (trascinandoli) da ⚙ → **Pulsanti**; lo schermo intero si toglie da ⚙ → **Aspetto**.
+Nella sezione **Touchpad** i tasti del mouse stanno accanto al touchpad (sulla **Rotellina** si scorre strisciando) e
+la tastiera si può nascondere; da ⚙ → **Touchpad** si scelgono, per ogni dispositivo, la posizione dei tasti del mouse
+e della tastiera e il tipo di tastiera (completa, quella attuale col campo di testo, o solo i tasti essenziali).
+
+**Annullare una modifica**: nella finestra sul PC, **Annulla ultima modifica** riporta pulsanti, scorciatoie e
+impostazioni a com'erano prima dell'ultimo cambio (un passo alla volta; si tengono gli ultimi 30). Funziona anche
+se la pagina sul telefono non si apre. **Apri TabDeck sul PC** apre la pagina completa nel browser del PC, da usare
+col mouse.
 
 Chiudendo la finestra TabDeck resta attivo: la sua icona è vicino all'orologio (clic = riapri, clic destro =
 Riavvia / Esci). All'accensione del PC parte già nascosto, solo con l'icona.

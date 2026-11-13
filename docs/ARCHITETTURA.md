@@ -49,6 +49,18 @@ Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
    `Shell_NotifyIconW` via ctypes). La finestra non importa tabdeck.py: riceve un oggetto `_App`; gli altri
    thread non toccano Tk (coda svuotata con `after`). X = nascondi nell'area di notifica; Esci (`quit_tabdeck`)
    ferma server e icona, salva i dispositivi e termina (dopo 3 s comunque).
+   La finestra ha anche **Annulla ultima modifica** (`undo_last`, vedi sotto) e **Apri TabDeck sul PC**
+   (apre `pair_url() + "&pc=1"` nel browser).
+
+### Storico delle modifiche (`storico.py`, `data/storico/`)
+- Prima di ogni modifica fatta da una richiesta (`POST /layout` righe e scorciatoie, `POST /settings`) si legge
+  `layout.json` + `settings.json` (`cfg_before`); dopo il salvataggio, se qualcosa e' cambiato, la copia di prima
+  va in `data/storico/<ms>.json` con un'etichetta ("Pulsanti salvati", "Tema → Notte"...) (`cfg_after`).
+  Si tengono le ultime 30. HD2, dispositivi, token e Discord non ci sono.
+- `undo_last()` riscrive la copia piu' recente, rilegge il layout in memoria (`reload_layout`) e la toglie: ogni
+  pressione torna indietro di un passo. Nessun "ripristina".
+- `CFG_REV` cresce a ogni modifica e annullamento ed e' in `/state`: la pagina, quando cambia, rifa' Generale e le
+  impostazioni sul posto (`cfgSeen` -> `refreshGeneral`, che riceve anche `settings` e `rev` da `GET /general`).
 
 ### Dispositivi e approvazione (`devices.py`)
 - Ogni browser ha un ID casuale (128 bit): cookie `tdd` + `localStorage` (l'app dalla schermata Home di iOS ha
@@ -62,6 +74,8 @@ Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
   **solo dalla finestra sul PC**, nessuna richiesta di rete puo' farlo.
 - Su disco solo l'interruttore e gli approvati (scrittura atomica; "visto alle" al massimo ogni 60 s).
   Installazione esistente senza `devices.json` = approvazione spenta; installazione nuova = accesa.
+- "Apri TabDeck sul PC": una richiesta con token giusto, `pc=1` e indirizzo uguale a quello del server (cioe' dal
+  PC stesso, `pc_admit`) entra subito come "Questo PC" (`DeviceStore.admit`). Da altri indirizzi `pc=1` non conta.
 
 ---
 
@@ -80,7 +94,7 @@ Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
 | `"in riproduzione"` | brano corrente via WinRT (GlobalSystemMediaTransportControls) in ctypes. |
 | `monitor del PC` | contatori PDH + GPU NVIDIA (NVML); campiona **solo** mentre la sezione è aperta. |
 | `testo sullo schermo: OCR` | OCR di Windows (WinRT) per leggere il menu/HUD di HD2. |
-| `input a scancode` / `touchpad e tastiera` | SendInput: tasti per i giochi, mouse, testo. |
+| `input a scancode` / `touchpad e tastiera` | SendInput: tasti per i giochi, clic e rotella, testo. Il movimento del touchpad passa da `MouseSmoother` (vedi §5) e sposta il cursore con `SetCursorPos` (`move_cursor`): niente accelerazione di Windows. |
 | `sincronizzazione equipaggiamento` | legge il menu stratagemmi dallo schermo. |
 | `PAGINA WEB` | unisce `web/*` in memoria; `render_page` riempie i segnaposto `__NOME__`. |
 | `class Handler` | tutte le richieste HTTP (vedi §3 per i controlli). |
@@ -266,6 +280,17 @@ Regole imparate misurando sul tablet (vedi §6 per come si misura).
 - Il monitor (PDH/NVML) campiona solo mentre la sezione è aperta.
 - La lettura dello schermo di HD2 smette del tutto quando tutte le durate sono note.
 - La pagina è unita una volta e riletta solo se un file di `web/` cambia.
+
+### Touchpad
+- La rete del hotspot ha ~70 ms di andata e ritorno (a volte 30, a volte 150). La pagina tiene fino a 3 richieste
+  `/mouse` di movimento in viaggio (`PAD_FLIGHT`); un clic parte solo quando non ce ne sono (ordine garantito).
+- Sul PC `MouseSmoother` distribuisce ogni pacchetto in passi ogni 4 ms lungo l'intervallo medio tra i pacchetti
+  (12-60 ms): niente pause quando un pacchetto arriva in ritardo. Prima di un clic si spedisce tutto il resto.
+- Nessuna accelerazione: velocita' lineare (`PAD_SPEED`) e `SetCursorPos`.
+- Scorrimento "scivoloso" (`flGo`): dopo una strisciata veloce continua ~0,4 s; disattivabile per dispositivo.
+- Opzioni per dispositivo in `localStorage` (`LOCAL`: `kbpos`, `kbtype`, `kb`, `mb`, `fling`) -> classi su `body`
+  (`kbp-*`, `kbt-*`, `kb-off`, `mb-*`). La tastiera completa (`#fkb`) la disegna la pagina: lettere e simboli
+  vanno come caratteri (`/type`), con Ctrl/Alt/Win diventano combinazioni (`/key`).
 
 ---
 

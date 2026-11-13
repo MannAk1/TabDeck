@@ -33,5 +33,14 @@ class GuiLogicTest(unittest.TestCase):
         self.assertTrue(gui.should_autoshow(1000, 1060))
 
 
+class UndoTextTest(unittest.TestCase):
+    def test_nothing_to_undo(self):
+        self.assertEqual(gui.undo_text(None, 1000), "Nessuna modifica da annullare")
+
+    def test_label_and_age(self):
+        self.assertEqual(gui.undo_text({"label": "Tema → Notte", "t": 1000 - 130}, 1000),
+                         "Ultima: Tema → Notte · 2 min fa")
+
+
 if __name__ == "__main__":
     unittest.main()

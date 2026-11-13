@@ -357,6 +357,7 @@ ICONS = {
 import collections
 import ctypes
 import devices
+import storico
 import youtube
 import difflib
 import hashlib
@@ -636,6 +637,18 @@ def save_layout(rows=None):
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=1)
         os.replace(tmp, LAYOUT_FILE)
+
+
+def reload_layout():
+    """Dopo un "Annulla" dal PC: si riparte dai predefiniti e si rilegge layout.json (app e scorciatoie comprese)."""
+    with LAYOUT_LOCK:
+        for b in [b for b in BUTTONS if b.get("custom") or b.get("customkey")]:
+            _drop_button(b["id"])
+        CUSTOM_KEYS[:] = []
+        FAVORITES[:] = DEFAULT_FAV
+        for sid in ("sistema", "strumenti"):
+            ROWS[sid][:] = DEFAULT_ROWS[sid]
+        apply_layout()
 
 
 apply_layout()
@@ -2281,11 +2294,123 @@ def _mouse(flags, dx=0, dy=0, data=0):
     return _INPUT(type=0, u=_INPUTUNION(mi=_MOUSEINPUT(dx, dy, data & 0xffffffff, flags, 0, 0)))
 
 
+class MouseSmoother:
+    """Il tablet manda i movimenti a pacchetti (la rete del hotspot ha ~70 ms di andata e ritorno): invece di un salto
+    unico, ogni pacchetto si distribuisce in passi regolari ogni ~4 ms, lungo il tempo medio tra un pacchetto e
+    l'altro (cosi' un pacchetto in ritardo non lascia il cursore fermo). Il totale resta esatto (interi)."""
+    TICK = 0.004
+    STEPS_MIN, STEPS_MAX, STEPS_FIRST = 3, 15, 6     # 12..60 ms; la prima mossa dopo una pausa ~24 ms
+
+    def __init__(self, send, now=time.monotonic):
+        self.send, self.now = send, now
+        self.last = self.iv = None   # arrivo precedente, intervallo medio tra i pacchetti
+        self.left = 0                # passi rimasti per finire il movimento in sospeso
+        self.lock = threading.Lock()
+        self.emit = threading.Lock()   # un passo gia' preso e un clic non si scavalcano
+        self.px = self.py = 0
+        self.wake = threading.Event()
+        self.thread = None
+
+    @staticmethod
+    def _part(p, f):
+        if p == 0:
+            return 0
+        s = int(p * f)
+        return s if s else (1 if p > 0 else -1)
+
+    def move(self, dx, dy):
+        with self.lock:
+            t = self.now()
+            gap = None if self.last is None else t - self.last
+            if gap is not None and gap < 0.3:
+                self.iv = gap if self.iv is None else 0.7 * self.iv + 0.3 * gap
+            else:
+                self.iv = None                       # dito fermo: si riparte senza ritardo
+            self.last = t
+            n = self.STEPS_FIRST if self.iv is None else int(round(self.iv / self.TICK))
+            self.left = max(self.STEPS_MIN, min(self.STEPS_MAX, n))
+            self.px += dx
+            self.py += dy
+
+    def take(self):
+        with self.lock:
+            if not (self.px or self.py):
+                return 0, 0
+            n = max(1, self.left)
+            if n == 1:
+                sx, sy = self.px, self.py
+            else:
+                sx, sy = self._part(self.px, 1.0 / n), self._part(self.py, 1.0 / n)
+            self.left = max(1, self.left - 1)
+            self.px -= sx
+            self.py -= sy
+            return sx, sy
+
+    def flush(self):
+        with self.lock:
+            r = (self.px, self.py)
+            self.px = self.py = 0
+            return r
+
+    def push(self, dx, dy):
+        self.move(dx, dy)
+        if self.thread is None:
+            self.thread = threading.Thread(target=self._run, name="mouse", daemon=True)
+            self.thread.start()
+        self.wake.set()
+
+    def _run(self):
+        while True:
+            self.wake.wait()
+            self.wake.clear()
+            while True:
+                with self.emit:
+                    dx, dy = self.take()
+                    if not (dx or dy):
+                        break
+                    try:
+                        self.send(dx, dy)
+                    except OSError:
+                        pass
+                time.sleep(self.TICK)
+
+
+class _PT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+
+def move_cursor(dx, dy):
+    """Sposta il cursore di esattamente dx, dy: niente accelerazione di Windows ("Precisione puntatore avanzata"),
+    il touchpad del tablet resta lineare. Il mouse vero del PC non cambia."""
+    pt = _PT()
+    u = ctypes.windll.user32
+    if u.GetCursorPos(ctypes.byref(pt)):
+        u.SetCursorPos(pt.x + dx, pt.y + dy)
+
+
+def _smooth_send(dx, dy):
+    move_cursor(dx, dy)
+
+
+SMOOTH = MouseSmoother(_smooth_send)
+
+
 def mouse_input(dx=0, dy=0, wheel=0, hwheel=0, buttons=()):
-    """Movimento relativo (con l'accelerazione di Windows), rotella verticale/orizzontale, poi i pulsanti."""
+    """Movimento relativo (con l'accelerazione di Windows), rotella verticale/orizzontale, poi i pulsanti.
+    Senza pulsanti il movimento va a SMOOTH (a passi); con un pulsante prima arriva tutto il movimento rimasto."""
+    if buttons:
+        with SMOOTH.emit:
+            fx, fy = SMOOTH.flush()
+            return _mouse_now(dx + fx, dy + fy, wheel, hwheel, buttons)
+    if dx or dy:
+        SMOOTH.push(dx, dy)
+    _mouse_now(0, 0, wheel, hwheel, ())
+
+
+def _mouse_now(dx, dy, wheel, hwheel, buttons):
     items = []
     if dx or dy:
-        items.append(_mouse(0x1, dx, dy))                 # MOUSEEVENTF_MOVE
+        move_cursor(dx, dy)
     if wheel:
         items.append(_mouse(0x800, data=wheel))           # MOUSEEVENTF_WHEEL (120 = uno scatto)
     if hwheel:
@@ -3125,6 +3250,92 @@ def save_settings(s):
         os.replace(tmp, SETTINGS_FILE)
 
 
+# --- storico delle modifiche (data/storico): una copia di layout.json + settings.json PRIMA di ogni modifica fatta
+# dal tablet; "Annulla ultima modifica" nella finestra sul PC torna indietro di un passo alla volta ---
+HISTORY_DIR = os.path.join(DATA_DIR, "storico")
+CFG_REV = 0               # cresce a ogni modifica o annullamento: la pagina lo vede in /state e si aggiorna da sola
+CFG_LOCK = threading.RLock()
+SETTING_NAMES = {"input": "Inserimento HD2", "remap": "WASD \u2192 frecce", "pos": "Posizione equipaggiamento",
+                 "theme": "Tema", "pad": "Velocit\u00e0 touchpad", "updchk": "Controllo aggiornamenti"}
+SETTING_VALUES = {"input": {"wasd": "Ctrl + WASD", "arrows": "Ctrl + frecce"}, "remap": {"off": "Spento", "on": "Attivo"},
+                  "pos": {"left": "Sinistra", "right": "Destra", "top": "Sopra", "bottom": "Sotto"},
+                  "theme": {"hd": "Helldivers", "notte": "Notte", "discord": "Discord", "term": "Terminale",
+                            "rosso": "Rosso", "oled": "Nero OLED"},
+                  "pad": {"slow": "Lenta", "med": "Normale", "fast": "Veloce"}, "updchk": {"on": "S\u00ec", "off": "No"}}
+
+
+def _read_json(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _write_json(path, obj):
+    """obj None = il file non c'era: lo si toglie (si torna ai predefiniti)."""
+    if obj is None:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        return
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, indent=1)
+    os.replace(tmp, path)
+
+
+def cfg_before():
+    return {"layout": _read_json(LAYOUT_FILE), "settings": _read_json(SETTINGS_FILE)}
+
+
+def cfg_after(before, label):
+    """Se la richiesta ha cambiato qualcosa: copia di prima nello storico e nuova revisione. Mai un errore per chi salva."""
+    global CFG_REV
+    with CFG_LOCK:
+        after = cfg_before()
+        if after == before:
+            return
+        CFG_REV += 1
+        try:
+            storico.save(HISTORY_DIR, label(before, after) if callable(label) else label,
+                         before["layout"], before["settings"])
+        except (OSError, ValueError, TypeError) as e:
+            print("[%s] storico non salvato: %s" % (time.strftime("%H:%M:%S"), e))
+
+
+def settings_label(before, after):
+    defaults = {k: v[0] for k, v in SETTINGS_CHOICES.items()}
+    b, a = dict(defaults, **(before["settings"] or {})), dict(defaults, **(after["settings"] or {}))
+    for k in SETTING_NAMES:
+        if a.get(k) != b.get(k):
+            return "%s \u2192 %s" % (SETTING_NAMES[k], SETTING_VALUES[k].get(a.get(k), a.get(k)))
+    return "Impostazioni"
+
+
+def undo_info():
+    e = storico.latest(HISTORY_DIR)
+    return {"label": e["label"], "t": e["t"]} if e else None
+
+
+def undo_last():
+    """Torna alla copia piu' recente (e la toglie): un passo indietro per ogni pressione. -> etichetta o None."""
+    global CFG_REV
+    with CFG_LOCK:
+        e = storico.pop(HISTORY_DIR)
+        if e is None:
+            return None
+        with SETTINGS_LOCK:
+            _write_json(SETTINGS_FILE, e.get("settings"))
+        with LAYOUT_LOCK:
+            _write_json(LAYOUT_FILE, e.get("layout"))
+        reload_layout()
+        CFG_REV += 1
+    print("[%s] annullato: %s" % (time.strftime("%H:%M:%S"), e["label"].encode("ascii", "replace").decode()))
+    return e["label"]
+
+
 def save_loadout(ids):
     tmp = LOADOUT_FILE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
@@ -3481,6 +3692,12 @@ def web_manifest(token):
                       {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"}]}
 
 
+def pc_admit(client_ip, bound_ip, query):
+    """Pagina aperta dal pulsante "Apri TabDeck sul PC": stesso indirizzo del server (quindi dal PC) e pc=1.
+    Il token giusto si controlla prima; dagli altri indirizzi pc=1 non conta nulla."""
+    return client_ip == bound_ip and (query.get("pc") or [""])[0] == "1"
+
+
 def pair_allowed(client_ip, bound_ip):
     """La pagina /pair mostra il token: la si apre solo dal PC stesso (stesso indirizzo o localhost)."""
     return client_ip in (bound_ip, "127.0.0.1")
@@ -3618,6 +3835,8 @@ class Handler(BaseHTTPRequestHandler):
             return store.access(dev, ip, ua)
         if not tok:
             return "bad", None
+        if pc_admit(ip, self.server.server_address[0], query):
+            return store.admit(dev, ip, ua, "Questo PC")
         if create or dev:
             # chi manda gia' un ID (la pagina lo fa sempre) viene registrato: niente accessi che non compaiono
             # nell'elenco, e un dispositivo tolto torna "in attesa" alla sua prossima azione
@@ -3696,7 +3915,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(layout_info()), "application/json")
         if u.path == "/general":   # Generale rifatto dopo "Salva": la pagina lo sostituisce senza ricaricarsi
             secs, pops = render_general()
-            return self._send(200, json.dumps({"secs": secs, "pops": pops}), "application/json")
+            return self._send(200, json.dumps({"secs": secs, "pops": pops, "settings": load_settings(), "rev": CFG_REV}),
+                              "application/json")
         if u.path == "/yts":    # ricerca YouTube dal tablet
             yq = (q.get("q") or [""])[0].strip()
             if not yq or len(yq) > 200:
@@ -3732,6 +3952,7 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 st = {}
             st["hd"] = cd_state()
+            st["rev"] = CFG_REV
             if "g" in q:
                 st["dc"] = DISCORD.state()
                 try:
@@ -3897,6 +4118,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, "ok")
         if u.path == "/layout" and (form.get("a") or [""])[0] in ("key", "delkey"):
             kid = (form.get("id") or [""])[0] or "k_" + secrets.token_hex(4)
+            snap = cfg_before()
             if form["a"][0] == "delkey":
                 with LAYOUT_LOCK:
                     CUSTOM_KEYS[:] = [k for k in CUSTOM_KEYS if k["id"] != kid]
@@ -3904,6 +4126,7 @@ class Handler(BaseHTTPRequestHandler):
                         ROWS[sid][:] = [i for i in ROWS[sid] if i != kid]
                 _drop_button(kid)
                 save_layout()
+                cfg_after(snap, "Scorciatoia eliminata")
                 self.log_message("scorciatoia eliminata: %s", kid)
                 return self._send(200, json.dumps(layout_info()), "application/json")
             spec = {"id": kid, "label": (form.get("label") or [""])[0].strip(),
@@ -3914,11 +4137,13 @@ class Handler(BaseHTTPRequestHandler):
                 CUSTOM_KEYS[:] = [k for k in CUSTOM_KEYS if k["id"] != kid] + [spec]
             _put_button(key_button(spec))
             save_layout()
+            cfg_after(snap, "Scorciatoia \u00ab%s\u00bb salvata" % spec["label"])
             self.log_message("scorciatoia %s: %s = %s", kid, spec["label"], "+".join(spec["keys"]))
             out = layout_info()
             out["new"] = kid
             return self._send(200, json.dumps(out), "application/json")
         if u.path == "/layout":
+            snap = cfg_before()
             want = {}
             for sid in ROW_SIDS:
                 field = (form.get(sid) or form.get("fav" if sid == "avvio" else sid) or [None])[0]
@@ -3940,6 +4165,7 @@ class Handler(BaseHTTPRequestHandler):
                 want[sid] = lst
             rows = clean_rows(want)
             save_layout(rows)
+            cfg_after(snap, "Pulsanti salvati")
             self.log_message("righe: %s", " | ".join(",".join(rows[sid]) for sid in ROW_SIDS))
             return self._send(200, json.dumps(rows), "application/json")
         if u.path == "/winact":
@@ -4057,6 +4283,7 @@ class Handler(BaseHTTPRequestHandler):
             self.log_message("media %s: %s", cmd or "posizione %s" % pos, "ok" if ok else "rifiutato dall'app")
             return self._send(200 if ok else 409, "ok" if ok else "rifiutato")
         if u.path == "/settings":
+            snap = cfg_before()
             s = load_settings()
             for k, choices in SETTINGS_CHOICES.items():
                 v = (form.get(k) or [None])[0]
@@ -4066,8 +4293,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(400, "impostazione non valida")
                 s[k] = v
             save_settings(s)
+            cfg_after(snap, settings_label)
             self.log_message("impostazioni: %s", s)
-            return self._send(200, json.dumps(s), "application/json")
+            return self._send(200, json.dumps(dict(s, rev=CFG_REV)), "application/json")
         button = BY_ID.get((form.get("id") or [""])[0])
         if button is None:
             return self._send(400, "pulsante sconosciuto")
@@ -4487,6 +4715,18 @@ class _App:
     def pair_url(self):
         ip = STATUS.get("ip") if STATUS.get("state") == "listening" else None
         return "http://%s:%d/?t=%s" % (ip, PORT, SERVER.token) if ip and SERVER is not None else None
+
+    undo_info = staticmethod(undo_info)
+    undo = staticmethod(undo_last)
+
+    def open_page(self):
+        """La pagina completa nel browser del PC (pc=1: entra come "Questo PC", senza codice)."""
+        url = self.pair_url()
+        if not url:
+            return False
+        import webbrowser
+        webbrowser.open(url + "&pc=1")
+        return True
 
     def make_tray(self, on_open, on_restart, on_quit):
         global _TRAY

@@ -24,6 +24,13 @@ def device_rows(store, now):
     return rows
 
 
+def undo_text(info, now):
+    """Riga accanto a "Annulla ultima modifica": cosa verrebbe annullato e quando era stato fatto."""
+    if not info:
+        return "Nessuna modifica da annullare"
+    return "Ultima: %s · %s" % (info["label"], _ago(info["t"], now))
+
+
 def should_autoshow(last_show, now):
     return now - last_show >= AUTOSHOW_S
 
@@ -47,8 +54,8 @@ class Window:
         self.root = r = tk.Tk()
         r.title("TabDeck")
         r.configure(bg=BG)
-        r.geometry("760x500")
-        r.minsize(680, 440)
+        r.geometry("760x600")
+        r.minsize(680, 540)
         try:
             r.iconbitmap(app.icon_path)
         except tk.TclError:
@@ -63,8 +70,9 @@ class Window:
         r.after(300, self._tick)
 
     # --- costruzione ---
-    def _btn(self, parent, text, cmd, fg=TEXT, bg=PANEL2):
-        b = tk.Label(parent, text=text, fg=fg, bg=bg, font=(FONT, 10, "bold"), padx=12, pady=6, cursor="hand2")
+    def _btn(self, parent, text, cmd, fg=TEXT, bg=PANEL2, big=False):
+        b = tk.Label(parent, text=text, fg=fg, bg=bg, font=(FONT, 12 if big else 10, "bold"), padx=18 if big else 12,
+                     pady=10 if big else 6, cursor="hand2")
         b.bind("<Button-1>", lambda e: cmd())
         b.bind("<Enter>", lambda e: b.configure(bg=LINE))
         b.bind("<Leave>", lambda e: b.configure(bg=bg))
@@ -95,6 +103,8 @@ class Window:
         row.pack(fill="x")
         self._btn(row, "Copia link", self.copy_link).pack(side="left")
         self._btn(row, "Nuovo link", self.new_link).pack(side="left", padx=(6, 0))
+        self.openpc = self._btn(left, "Apri TabDeck sul PC", self.open_page, fg=AMBER, big=True)
+        self.openpc.pack(fill="x", pady=(8, 0))
 
         right = tk.Frame(body, bg=PANEL, padx=14, pady=12)
         right.pack(side="left", fill="both", expand=True, padx=(12, 0))
@@ -105,6 +115,15 @@ class Window:
         self.adb.pack(fill="x", pady=(2, 6))
         self.list = tk.Frame(right, bg=PANEL)
         self.list.pack(fill="both", expand=True)
+
+        # annulla: torna alla configurazione di prima (pulsanti, scorciatoie, impostazioni), un passo per volta
+        und = tk.Frame(r, bg=PANEL, padx=14, pady=8)
+        und.pack(fill="x", padx=16, pady=(0, 10))
+        self.undo_btn = self._btn(und, "Annulla ultima modifica", self.undo, big=True)
+        self.undo_btn.pack(side="left")
+        self.undo_lbl = tk.Label(und, text="", fg=DIM, bg=PANEL, font=(FONT, 11), anchor="w")
+        self.undo_lbl.pack(side="left", fill="x", expand=True, padx=(10, 0))
+        self._undone = None        # (etichetta, momento): "Annullato: ..." resta qualche secondo
 
         foot = tk.Frame(r, bg=BG)
         foot.pack(fill="x", padx=16, pady=(0, 14))
@@ -144,7 +163,9 @@ class Window:
         self.upd.configure(text=("Aggiornamento disponibile: %s" % st["update"]) if st.get("update") else "")
         adb = st.get("adb") or []
         self.adb.configure(text=("Tablet via USB: " + ", ".join(adb)) if adb else "")
+        self.paint_undo(now)
         url = self.app.pair_url()
+        self.openpc.configure(fg=AMBER if url else DIM)
         if url != getattr(self, "_url", None):
             self._url = url
             self.url.configure(text=url or "(nessuna rete)")
@@ -259,6 +280,24 @@ class Window:
         self.app.rotate_token()
         self.refresh()
 
+    def paint_undo(self, now):
+        info = self.app.undo_info()
+        self.undo_btn.configure(fg=TEXT if info else DIM)
+        if self._undone and now - self._undone[1] < 5:
+            self.undo_lbl.configure(text="Annullato: %s" % self._undone[0], fg=OK)
+        else:
+            self.undo_lbl.configure(text=undo_text(info, now), fg=DIM)
+
+    def undo(self):
+        label = self.app.undo()
+        if label:
+            self._undone = (label, time.time())
+        self.paint_undo(time.time())
+
+    def open_page(self):
+        if not self.app.open_page():
+            messagebox.showinfo("TabDeck", "TabDeck non e' in ascolto: accendi l'hotspot e riprova.", parent=self.root)
+
     def toggle_require(self):
         self.app.devices.set_require(self.req.get())
 
@@ -306,6 +345,6 @@ class Window:
 def run(app):
     """app: version, icon_path, start_hidden, devices (DeviceStore), status() -> dict, pair_url() -> str|None,
     qr_matrix(text), rotate_token(), log_tail(), show_requested(), make_tray(on_open, on_restart, on_quit) -> Tray|None,
-    restart(hidden), quit()."""
+    restart(hidden), quit(), undo_info() -> {"label","t"}|None, undo() -> etichetta|None, open_page() -> bool."""
     w = Window(app)
     w.root.mainloop()
