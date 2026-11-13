@@ -71,7 +71,7 @@ Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
 |---|---|
 | `PULSANTI`, `GROUPS`, `FAVORITES` | configurazione dei riquadri: tasti (`keys`) o programmi (`run`, lista argv). |
 | `HELLDIVERS 2 - stratagemmi` | tabella dei codici; `HD2` = tasti e tempi di inserimento. |
-| `Righe di Generale modificabili` | righe Preferiti/Sistema/Strumenti, scorciatoie personali, `data/layout.json`. |
+| `Righe di Generale modificabili` | righe Preferiti/Sistema/Strumenti (`DEFAULT_ROWS` per le installazioni nuove), scorciatoie personali, `data/layout.json`. Dopo "Salva" la pagina chiede `GET /general` (stesso HTML di `render_general`) e sostituisce Generale sul posto, senza ricaricare. |
 | `volume di Windows` | Core Audio via COM in ctypes (`_com` chiama i metodi per indice della vtable). |
 | `finestre aperte sul PC` | `list_windows` (come la barra delle applicazioni), app attive, focus/minimizza. |
 | `icone vere dei programmi` | icone estratte dalla shell di Windows, salvate in `cache/icons`. |
@@ -193,6 +193,15 @@ pubblicati non ci siano token, segreti Discord o percorsi personali, poi tag + p
   Su iPhone il token resta nella barra indirizzi (Safari salva quell'indirizzo per l'icona); zoom con due dita
   bloccato (`gesturestart`, `touch-action: pan-x pan-y`, body fisso).
 - Link diretti per le prove: `/#mix`, `/#set-td`, ... (sezione o scheda delle impostazioni aperta all'avvio).
+
+### Fascia finestre e barra in basso
+- Le finestre aperte stanno in una fascia fissa a destra (`#wband`, 54 px), in ogni sezione: tocco = primo piano,
+  tenendo premuto = menu finestra. La maniglia in alto (o uno scorrimento verso sinistra) la allarga a 250 px coi
+  titoli. In Generale l'elenco arriva con `/state`; nelle altre sezioni la pagina chiede `/windows` ogni 1,2 s.
+  `.pane` ha `margin-right` per non finirci sotto; z-index 8 (sotto `.gpop` e `#wmenu`).
+- Impostazioni e sezioni sono due quadrati gialli fissi in fondo a destra della barra, sotto la fascia.
+- Impostazioni "di questo dispositivo" (non del PC) in `localStorage` (`td_fs`: schermo intero sì/no).
+- Impostazioni > Pulsanti: la riga si riordina trascinando (o con le frecce).
 
 ---
 

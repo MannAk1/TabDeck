@@ -56,18 +56,45 @@ if (navigator.getBattery) {
     p(); b.addEventListener("levelchange", p); b.addEventListener("chargingchange", p);
   });
 }
-/* schermo intero: Chrome lo concede solo dopo un tocco, quindi lo chiediamo al primo tocco */
-function goFull() {
+/* impostazioni di QUESTO dispositivo (non del PC): schermo intero.
+   Salvate nel browser; se il browser non le conserva valgono i valori predefiniti. */
+var LOCAL = {fs: "on"}, LOCAL_OK = {fs: ["on", "off"]};
+(function () {
+  for (var k in LOCAL) {
+    var v = null;
+    try { v = localStorage.getItem("td_" + k); } catch (e) {}
+    if (v && LOCAL_OK[k].indexOf(v) >= 0) { LOCAL[k] = v; }
+  }
+})();
+function paintLocal() {
+  [].forEach.call(document.querySelectorAll(".lseg"), function (seg) {
+    [].forEach.call(seg.children, function (o) { cls(o, "sel", LOCAL[seg.getAttribute("data-l")] === o.getAttribute("data-v")); });
+  });
+}
+[].forEach.call(document.querySelectorAll(".lseg div"), function (o) {
+  o.addEventListener("click", function () {
+    var k = o.parentNode.getAttribute("data-l"), v = o.getAttribute("data-v");
+    LOCAL[k] = v;
+    try { localStorage.setItem("td_" + k, v); } catch (e) {}
+    if (k === "fs") { if (v === "off") { if (document.fullscreenElement) { document.exitFullscreen(); } } else { goFull(); } }
+    paintLocal();
+  }, false);
+});
+paintLocal();
+if (!document.documentElement.requestFullscreen) {
+  var fsOpt = document.querySelector('.lseg[data-l="fs"]');
+  if (fsOpt) { fsOpt.parentNode.style.display = "none"; }
+}
+/* schermo intero: Chrome lo concede solo dopo un tocco, quindi lo chiediamo al primo tocco (se non e' disattivato) */
+function goFull(e) {
   var d = document.documentElement;
-  if (!document.fullscreenElement && d.requestFullscreen) {
+  if (e && e.target && e.target.closest && e.target.closest(".lseg")) { return; }   /* il tocco sull'opzione decide da se' */
+  if (LOCAL.fs === "on" && !document.fullscreenElement && d.requestFullscreen) {
     var p = d.requestFullscreen({navigationUI: "hide"});
     if (p && p.catch) { p.catch(function () {}); }
   }
 }
 document.addEventListener("touchend", goFull, true);
-document.getElementById("fs").addEventListener("click", function () {
-  if (document.fullscreenElement) { document.exitFullscreen(); } else { goFull(); }
-});
 function cls(el, c, on) { el.classList[on ? "add" : "remove"](c); }
 function flash(el, c) {
   cls(el, "on", false); cls(el, c, true);
@@ -162,7 +189,7 @@ function bind(el) {
     var ct = e.changedTouches && e.changedTouches[0];
     if (ct && !live && !multi && !multiActive && !editMode && scroller.scrollTop === sc && lastScroll < t0) {
       var dx = ct.clientX - sx, dy = ct.clientY - sy, sw = winOf(el);
-      if (sw && Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) { winAct(el, sw, dy < 0 ? "max" : "min"); return; }
+      if (sw && !el.classList.contains("wbt") && Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) { winAct(el, sw, dy < 0 ? "max" : "min"); return; }
       /* riquadro YouTube: scorri su = apri (o porta davanti) il player sul PC */
       if (el.hasAttribute("data-yt") && dy < -40 && Math.abs(dy) > 1.5 * Math.abs(dx)) { flash(el, "ok"); ytBtn("open", el); return; }
     }
@@ -214,8 +241,19 @@ setInterval(function () {
   ping();
 }, 1500);
 setInterval(function () { if (curTab === "hd2" && !document.hidden) { ping(); } }, 500);   /* ricariche piu' reattive */
-/* finestre del PC: aggiornate ogni 2 s mentre la scheda e' aperta; tocco = porta in primo piano */
-var winKey = "", curTab = "grid", tbar = document.getElementById("tbar"), WORDER = [];
+/* finestre del PC: fascia fissa a destra in ogni sezione (vicina alla mano). Tocco = porta in primo piano,
+   tenendo premuto = menu della finestra. La maniglia in alto (o uno scorrimento verso sinistra) allarga la fascia
+   coi titoli; un tocco fuori o la scelta di una finestra la richiude. */
+var winKey = "", curTab = "grid", WORDER = [], wband = document.createElement("div"), wlist;
+wband.id = "wband";
+wband.innerHTML = '<div class="wbg"><span>&lsaquo;</span></div><div class="wbl scroll"></div>';
+document.body.appendChild(wband);
+wlist = wband.querySelector(".wbl");
+function wbPeek(on) { cls(wband, "peek", on); }
+/* la fascia finisce dove comincia la barra in basso (alta in modo diverso su telefono) */
+function wbFit() { var bar = document.getElementById("bar"); if (bar) { wband.style.bottom = bar.offsetHeight + "px"; } }
+window.addEventListener("resize", wbFit, false);
+wbFit();
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }
 function hue(s) { var h = 0; for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) % 360; } return h; }
 function renderWins(list) {
@@ -224,32 +262,50 @@ function renderWins(list) {
   WORDER = WORDER.filter(function (h) { return byH[h]; });
   for (i = list.length - 1; i >= 0; i--) { if (WORDER.indexOf(list[i].h) < 0) { WORDER.push(list[i].h); } }   /* nuove in fondo */
   var ord = WORDER.map(function (h) { return byH[h]; }), key = JSON.stringify(ord.map(function (w) { return [w.h, w.x, w.i, w.t]; }));
-  if (key === winKey || tbar.querySelector(".on, .held")) {   /* stesse finestre: solo le classi (o niente sotto il dito) */
+  if (key === winKey || wlist.querySelector(".on, .held")) {   /* stesse finestre: solo le classi (o niente sotto il dito) */
     if (key === winKey) {
-      [].forEach.call(tbar.getElementsByClassName("tk"), function (el) {
+      [].forEach.call(wlist.getElementsByClassName("wbt"), function (el) {
         var w = byH[el.getAttribute("data-hw")]; if (w) { cls(el, "fg", w.fg); cls(el, "mn", w.min); }
       });
     }
     return;
   }
   winKey = key;
-  document.getElementById("wcount").textContent = "(" + list.length + ")";
-  tbar.innerHTML = ord.map(function (w) {
+  wlist.innerHTML = ord.map(function (w) {
     var app = w.x.replace(/\.exe$/i, ""), mono = app.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
     var img = w.i ? '<img src="/appicon/' + w.i + '.png" alt="" onload="this.previousSibling.style.visibility=\'hidden\'" onerror="this.parentNode.removeChild(this)">' : "";
-    return '<button class="b tk' + (w.fg ? " fg" : "") + (w.min ? " mn" : "") + '" data-hw="' + w.h + '" data-n="' + esc(w.t) +
-      '" style="--c:hsl(' + hue(app.toLowerCase()) + ',65%,62%)"><span>' + esc(mono) + "</span>" + img + "</button>";
-  }).join("");
-  [].forEach.call(tbar.getElementsByClassName("tk"), bind);
+    return '<button class="b wbt' + (w.fg ? " fg" : "") + (w.min ? " mn" : "") + '" data-hw="' + w.h + '" data-n="' + esc(w.t) +
+      '" style="--c:hsl(' + hue(app.toLowerCase()) + ',65%,62%)"><span class="wbi"><span>' + esc(mono) + "</span>" + img +
+      '</span><span class="wbtt"><b>' + esc(w.t) + "</b><i>" + esc(app) + "</i></span></button>";
+  }).join("") || '<div class="wbe">&ndash;</div>';
+  [].forEach.call(wlist.getElementsByClassName("wbt"), bind);
 }
 document.addEventListener("contextmenu", function (e) { e.preventDefault(); }, false);   /* niente menu del tablet tenendo premuto */
-/* troppe finestre: la striscia scorre di lato col dito */
+/* maniglia: tocco = allarga/stringe; scorrimento orizzontale sulla fascia = allarga (verso sinistra) o stringe */
 (function () {
-  var x0 = 0, sl = 0;
-  tbar.addEventListener("touchstart", function (e) { if (e.touches.length === 1) { x0 = e.touches[0].clientX; sl = tbar.scrollLeft; } }, {passive: true});
-  tbar.addEventListener("touchmove", function (e) { if (e.touches.length === 1) { tbar.scrollLeft = sl - (e.touches[0].clientX - x0); } }, {passive: true});
+  var g = wband.querySelector(".wbg"), x0 = 0, y0 = 0;
+  g.addEventListener("touchend", function (e) { if (e.cancelable) { e.preventDefault(); } wbPeek(!wband.classList.contains("peek")); }, false);
+  g.addEventListener("click", function () { wbPeek(!wband.classList.contains("peek")); }, false);   /* mouse */
+  wband.addEventListener("touchstart", function (e) { if (e.touches.length === 1) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, {passive: true});
+  wband.addEventListener("touchend", function (e) {
+    var t = e.changedTouches && e.changedTouches[0], dx, dy;
+    if (!t) { return; }
+    dx = t.clientX - x0; dy = t.clientY - y0;
+    if (Math.abs(dx) > 30 && Math.abs(dx) > 1.5 * Math.abs(dy)) { wbPeek(dx < 0); }
+  }, {passive: true});
+  document.addEventListener("touchstart", function (e) {
+    if (wband.classList.contains("peek") && !(e.target.closest && e.target.closest("#wband"))) { wbPeek(false); }
+  }, {capture: true, passive: true});
 })();
+/* fuori da Generale le finestre non arrivano con /state: si chiedono a parte, solo a pagina visibile */
+var wbBusy = false;
+setInterval(function () {
+  if (wbBusy || curTab === "grid" || document.hidden || document.body.classList.contains("setopen")) { return; }
+  wbBusy = true;
+  dcGet("/windows", function (code, j) { wbBusy = false; if (code === 200 && j && j.length !== undefined) { renderWins(j); } });
+}, 1200);
 function focusWin(el) {
+  if (wband.classList.contains("peek")) { setTimeout(function () { wbPeek(false); }, 600); }
   cls(el, "on", true);
   post("/focus", "h=" + encodeURIComponent(el.getAttribute("data-hw")), function (code, txt) {
     cls(el, "on", false);
@@ -309,7 +365,7 @@ function focusPost(el, r, keep) {
 }
 /* dopo un'azione su una finestra: aggiorna subito l'elenco visibile */
 function afterWin(j) {
-  if (curTab === "grid" && j && j.w) { renderWins(j.w); }
+  if (j && j.w) { renderWins(j.w); }
   if (curTab === "grid") { setTimeout(ping, 300); }
 }
 /* finestra legata a un riquadro: riquadri della scheda Finestre o app attive di Generale */
@@ -376,9 +432,34 @@ wmenu.addEventListener("click", function (e) {      /* fase di cattura: prima de
 wmenu.addEventListener("click", function (e) { if (e.target === wmenu) { cls(wmenu, "show", false); } }, false);
 /* gruppi (browser, launcher, giochi): si aprono in una finestra */
 function openGroup(id) { cls(document.getElementById("pop_" + id), "show", true); }
-[].forEach.call(document.getElementsByClassName("gpop"), function (p) {
+function bindPop(p) {
   p.addEventListener("click", function (e) { if (e.target === p || e.target.classList.contains("gx")) { cls(p, "show", false); } }, false);
-});
+}
+[].forEach.call(document.getElementsByClassName("gpop"), bindPop);
+/* Generale rifatto dal PC (dopo aver salvato i pulsanti): si sostituisce sul posto, senza ricaricare la pagina.
+   I riferimenti tenuti da parte (volume, microfono, Discord, gruppi) vanno ripresi dai nuovi riquadri. */
+function refreshGeneral(done) {
+  dcGet("/general", function (code, j) {
+    if (code !== 200 || !j || typeof j.secs !== "string") { location.reload(); return; }   /* ripiego sicuro */
+    var grid = document.getElementById("grid"), tmp = document.createElement("div"), fresh = [grid], nodes, ref;
+    grid.innerHTML = j.secs;
+    tmp.innerHTML = j.pops;
+    nodes = [].slice.call(tmp.childNodes);
+    nodes.forEach(function (p) { var old = p.id && document.getElementById(p.id); if (old) { old.parentNode.removeChild(old); } });
+    ref = grid.nextSibling;   /* preso dopo aver tolto i vecchi: potevano essere proprio loro */
+    nodes.forEach(function (p) {
+      grid.parentNode.insertBefore(p, ref);
+      if (p.classList && p.classList.contains("gpop")) { bindPop(p); fresh.push(p); }
+    });
+    fresh.forEach(function (box) { [].forEach.call(box.querySelectorAll(".b"), bind); });
+    valEl = document.getElementById("volval"); svolEl = document.getElementById("svol");
+    micEls = [document.getElementById("vmic"), document.getElementById("smic")].filter(function (e) { return e; });
+    dcTile = document.querySelector('#grid .b[data-id="discord"]'); dcHint = dcTile && dcTile.querySelector(".h");
+    GRP_HTML = {}; runKey = ""; renderRun(RUN); paintVol();
+    if (curTab === "grid") { ping(); }
+    if (done) { done(); }
+  });
+}
 function tile(id) { return document.querySelector('#hd2all .s[data-id="' + id + '"]'); }
 function cloneInto(box, id) {
   var t = tile(id); if (!t) { return; }
@@ -622,6 +703,51 @@ function edReindex() { [].forEach.call(favrow.children, function (el, i) { el.se
 favrow.addEventListener("click", function (e) {
   var fi = e.target.closest(".fi"); if (fi && ED) { edSelect(+fi.getAttribute("data-i")); }
 }, false);
+/* trascinare un riquadro della riga lo sposta (le frecce restano). Un tocco senza movimento = selezione, come prima.
+   Il dito su un riquadro non fa scorrere le impostazioni: per scorrere si tocca fuori dalla riga. */
+(function () {
+  var d = null;
+  favrow.addEventListener("touchstart", function (e) {
+    var fi = e.target.closest && e.target.closest(".fi"), p = e.touches[0], r;
+    if (d && d.g) { return; }   /* trascinamento in corso: il dito in piu' si ignora */
+    if (!fi || !ED || e.touches.length !== 1) { d = null; return; }
+    r = fi.getBoundingClientRect();
+    d = {el: fi, x0: p.clientX, y0: p.clientY, dx: p.clientX - r.left, dy: p.clientY - r.top, w: r.width, h: r.height, g: null};
+  }, false);
+  favrow.addEventListener("touchmove", function (e) {
+    if (!d) { return; }
+    if (e.cancelable) { e.preventDefault(); }
+    var p = e.touches[0], t, o, r;
+    if (!d.g) {
+      if (Math.abs(p.clientX - d.x0) < 8 && Math.abs(p.clientY - d.y0) < 8) { return; }
+      d.g = d.el.cloneNode(true); d.g.id = "fghost"; d.g.style.width = d.w + "px"; d.g.style.height = d.h + "px";
+      document.body.appendChild(d.g); cls(d.el, "fdrag", true);
+    }
+    d.g.style.left = (p.clientX - d.dx) + "px"; d.g.style.top = (p.clientY - d.dy) + "px";
+    t = document.elementFromPoint(p.clientX, p.clientY);
+    o = t && t.closest && t.closest("#favrow > .fi");
+    if (!o || o === d.el) { return; }
+    r = o.getBoundingClientRect();
+    favrow.insertBefore(d.el, p.clientX < r.left + r.width / 2 ? o : o.nextSibling);
+  }, false);
+  function end(e) {
+    if (!d) { return; }
+    var moved = !!d.g, L, sel;
+    if (moved) {
+      if (e && e.cancelable) { e.preventDefault(); }   /* niente "click": era uno spostamento, non una selezione */
+      d.g.parentNode.removeChild(d.g); cls(d.el, "fdrag", false);
+      L = ED.rows[edRow];
+      ED.rows[edRow] = [].map.call(favrow.children, function (el) { return L[+el.getAttribute("data-i")]; });
+      sel = favrow.querySelector(".fi.sel");
+      edReindex();
+      edSel = sel ? +sel.getAttribute("data-i") : -1;
+      edPaintBar();
+    }
+    d = null;
+  }
+  favrow.addEventListener("touchend", end, false);
+  favrow.addEventListener("touchcancel", end, false);
+})();
 document.getElementById("rsel").addEventListener("click", function (e) {
   var d = e.target.closest("[data-r]"); if (!d || !ED) { return; }
   edRow = d.getAttribute("data-r");
@@ -669,7 +795,7 @@ document.getElementById("favundo").addEventListener("click", function () { edRow
 document.getElementById("favok").addEventListener("click", function () {
   var body = RIDS.map(function (r) { return r + "=" + encodeURIComponent(ED.rows[r].map(function (f) { return f.id; }).join(",")); }).join("&");
   post("/layout", body, function (code, txt) {
-    if (code === 200) { status("ok", "Pulsanti salvati, ricarico..."); setTimeout(function () { location.reload(); }, 600); }
+    if (code === 200) { refreshGeneral(function () { status("ok", "Pulsanti salvati"); favLoad(); }); }
     else { status("err", txt && code !== 0 ? txt : code === 0 ? "PC non raggiungibile" : "Errore " + code); }
   });
 }, false);
@@ -716,6 +842,7 @@ document.getElementById("kesave").addEventListener("click", function () {
     "&icon=" + encodeURIComponent(KE.icon), function (code, txt) {
     if (code !== 200) { status("err", code === 0 ? "PC non raggiungibile" : "Errore " + code); return; }
     try { keDone(JSON.parse(txt), isNew); } catch (e) {}
+    refreshGeneral();
   });
 }, false);
 document.getElementById("kedel").addEventListener("click", function () {
@@ -723,6 +850,7 @@ document.getElementById("kedel").addEventListener("click", function () {
   post("/layout", "a=delkey&id=" + encodeURIComponent(KE.id), function (code, txt) {
     if (code !== 200) { status("err", "Errore " + code); return; }
     try { keDone(JSON.parse(txt), false); status("ok", "Scorciatoia eliminata"); } catch (e) {}
+    refreshGeneral();
   });
 }, false);
 document.getElementById("newkey").addEventListener("click", function () { if (ED) { keOpen(null); } }, false);

@@ -91,13 +91,28 @@ body{display:flex;flex-direction:column;background:var(--bg);color:var(--text);
 #wins{flex-direction:column}
 #whead{padding:10px 12px 0}
 #wcount{color:var(--dim);letter-spacing:.05em}
-.sec-wins{flex:0 0 94px}
-#tbar{flex:0 0 74px;display:flex;gap:6px;overflow:hidden}
-.b.tk{flex:1 1 0;min-width:66px;max-width:120px;height:74px;padding:0}
-.tk>span{font-size:20px;font-weight:bold;color:var(--c)}
-.tk img{position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px 0 0 -21px}
-.b.tk.fg{background:#2a2610;box-shadow:inset 0 0 0 1px var(--amber2),inset 0 -4px 0 var(--amber)}
-.tk.mn img,.tk.mn>span{opacity:.4}
+/* fascia finestre a destra, in ogni sezione; sotto i riquadri che si aprono (.gpop 10) e il menu finestra (20) */
+.pane{margin-right:56px}
+#wband{position:fixed;right:0;top:0;bottom:48px;z-index:8;width:54px;display:flex;flex-direction:column;padding:3px;
+ background:var(--panel);box-shadow:-1px 0 0 var(--line)}
+body.setopen #wband{visibility:hidden}
+#wband.peek{width:250px;box-shadow:-1px 0 0 var(--amber2),-16px 0 0 rgba(0,0,0,.55)}
+.wbg{flex:0 0 36px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;background:var(--panel2);
+ box-shadow:inset 0 0 0 1px var(--amber2);color:var(--amber);font-size:26px;font-weight:bold;line-height:1}
+#wband.peek .wbg span{display:inline-block;-webkit-transform:scaleX(-1);transform:scaleX(-1)}
+.wbl{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;will-change:transform;background:var(--panel)}
+#wband .b.wbt{flex:0 0 50px;height:50px;margin-bottom:4px;padding:4px;flex-direction:row;justify-content:flex-start;align-items:center;text-align:left}
+#wband .b.wbt:after{display:none}
+#wband .b.wbt.fg{background:#2a2610;box-shadow:inset 3px 0 0 var(--amber)}
+.wbt.mn .wbi{opacity:.4}
+.wbi{position:relative;flex:0 0 42px;width:42px;height:42px;display:flex;align-items:center;justify-content:center}
+.wbi>span{font-size:17px;font-weight:bold;color:var(--c)}
+.wbi img{position:absolute;left:5px;top:5px;width:32px;height:32px}
+.wbtt{display:none;flex:1;min-width:0;flex-direction:column;margin-left:8px}
+#wband.peek .wbtt{display:flex}
+.wbtt b{font-size:13px;line-height:1.15;max-height:30px;overflow:hidden;color:var(--text)}
+.wbtt i{font-style:normal;font-size:11px;margin-top:2px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wbe{padding:14px 0;text-align:center;color:var(--dim)}
 /* le immagini non ricevono tocchi: niente menu "salva immagine" di Android, il tocco va al riquadro */
 img{pointer-events:none;-webkit-user-drag:none}
 #wlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 12px 14px;display:grid;
@@ -430,10 +445,10 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
 #setbox h3{margin:0 0 12px;font-size:15px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
 .opt{margin-bottom:14px}
 .opt .ol{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
-.seg{display:flex;gap:6px}
-.seg div{flex:1;height:42px;line-height:42px;text-align:center;font-size:14px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;
+.seg,.lseg{display:flex;gap:6px}
+.seg div,.lseg div{flex:1;height:42px;line-height:42px;text-align:center;font-size:14px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;
  background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);color:var(--text)}
-.seg div.sel{background:var(--amber);color:#141100;box-shadow:none}
+.seg div.sel,.lseg div.sel{background:var(--amber);color:#141100;box-shadow:none}
 .opt .od{font-size:12px;color:var(--dim);margin-top:5px}
 #setclose{height:40px;line-height:40px;text-align:center;font-weight:bold;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);border:1px solid var(--amber)}
 /* menu impostazioni a schede: contenuto a sinistra, schede a destra (vicino alla mano) */
@@ -451,11 +466,15 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
 .fa.fsave{background:var(--amber);color:#141100;box-shadow:none}
 .setst{font-size:17px;font-weight:bold}
 #sp_fav .ol{margin:16px 0 8px}
-.favrow{display:flex;flex-wrap:wrap;gap:8px}
-.fi{position:relative;flex:0 0 116px;width:116px;height:100px}
-.fi .b{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;padding:4px;gap:3px}
-.fi .b .l{font-size:12px;letter-spacing:.03em}.fi .b .h,.fi .b:after{display:none}
-.fi .ic,.fi .ic img{width:46px;height:46px}.fi .b svg{width:34px;height:34px}.fi .mo{font-size:20px}
+/* riquadri piccoli nelle impostazioni: ne stanno molti per riga. Margini e non gap: Chrome 81 ignora gap nei flex */
+.favrow{display:flex;flex-wrap:wrap;gap:0;margin-right:-6px}
+.fi{position:relative;flex:0 0 80px;width:80px;height:66px;margin:0 6px 6px 0}
+.fi .b{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;padding:3px;gap:2px}
+.fi .b .l{font-size:10px;letter-spacing:.02em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fi .b .h,.fi .b:after{display:none}
+.fi .ic,.fi .ic img{width:30px;height:30px}.fi .b svg{width:24px;height:24px}.fi .mo{font-size:15px}
+/* trascinamento nella riga: il riquadro resta al posto in cui cadra' (scurito), una copia segue il dito */
+.fi.fdrag{opacity:.35}
+#fghost{position:fixed;z-index:40;pointer-events:none;margin:0;box-shadow:0 0 0 2px var(--amber)}
 .fi.sel .b{box-shadow:inset 0 0 0 3px var(--amber)}
 #favact,#favsave{display:none;margin-top:10px}
 #favact.show,#favsave.dirty{display:block}
@@ -464,7 +483,7 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
 .rsel div{flex:1;height:46px;line-height:46px;text-align:center;font-size:15px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;
  background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line)}
 .rsel div.sel{background:var(--amber);color:#141100;box-shadow:none}
-.fe{position:absolute;right:0;top:0;width:34px;height:34px;line-height:34px;text-align:center;font-size:16px;color:#141100;background:var(--amber)}
+.fe{position:absolute;right:0;top:0;width:26px;height:26px;line-height:26px;text-align:center;font-size:13px;color:#141100;background:var(--amber)}
 #set #setbox{position:relative}
 #kedit{display:none;position:absolute;left:14px;top:14px;bottom:14px;right:228px;z-index:3;overflow-y:auto;-webkit-overflow-scrolling:touch;
  padding:0 6px 0 0;background:var(--panel)}
@@ -626,7 +645,7 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  .stab{flex:1 1 22%;justify-content:center;height:40px;padding:0 4px;font-size:12px;letter-spacing:.04em}
  #settabs #setclose{margin:0;flex:1 1 22%;height:40px;line-height:40px;padding:0}
  #kedit{left:10px;right:10px;top:calc(64px + env(safe-area-inset-top))}
- .fi{flex:0 0 calc((100% - 16px) / 3);width:auto}
+ .fi{flex:0 0 calc((100% - 24px) / 4);width:auto}
  .fa{height:48px;padding:0 14px;font-size:13px}
 }
 @media (max-height:500px) and (-webkit-min-device-pixel-ratio:2),(max-height:500px) and (min-aspect-ratio:21/10){
@@ -707,3 +726,23 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  .ytrw{flex-basis:62px}
 }
 #ytnote .ytsm.na{display:none}
+
+/* barra in basso: impostazioni e sezioni = due quadrati gialli fissi in fondo a destra, sotto la fascia finestre.
+   Alti quanto la barra (diversa su telefono); niente nome della sezione: la larghezza non cambia mai. */
+#nav,#gear{align-self:stretch;flex:0 0 54px;width:54px;height:auto;padding:0;justify-content:center;border:0;
+ background:var(--amber);color:#141100;clip-path:none}
+#nav{order:99;margin-right:-10px;gap:0}
+#gear{order:98;margin-right:2px}
+#nav svg,#gear svg{width:24px;height:24px;stroke-linejoin:round}
+#navname,#nav i{display:none}
+#gear.upd::after{top:4px;right:4px;box-shadow:0 0 0 2px var(--amber)}
+#clock{margin-right:16px}
+
+/* iPhone (viewport-fit=cover): fascia finestre fuori da notch e barra di stato */
+@media (max-width:600px){
+ #wband{padding-top:calc(3px + env(safe-area-inset-top))}
+}
+@media (max-height:500px) and (-webkit-min-device-pixel-ratio:2),(max-height:500px) and (min-aspect-ratio:21/10){
+ #wband{right:env(safe-area-inset-right)}
+ .pane{margin-right:calc(56px + env(safe-area-inset-right));padding-right:0}
+}

@@ -40,6 +40,10 @@ Doppio clic sull'icona **TabDeck** (Desktop o menu Start): si apre la finestra d
 **codice QR** e i dispositivi collegati. Inquadra il QR con la fotocamera: TabDeck si apre già collegato. Per
 averlo sempre a portata, nel browser che si è aperto: menu ⋮ (o Condividi su iPhone) → **Aggiungi a schermata Home**.
 
+Sul telefono: le **finestre aperte** del PC sono nella fascia a destra (tocco = la porta davanti; la freccia in alto
+mostra i titoli). In basso a destra: ⚙ impostazioni e il quadrato delle sezioni. I pulsanti di Generale si
+scelgono e si riordinano (trascinandoli) da ⚙ → **Pulsanti**; lo schermo intero si toglie da ⚙ → **Aspetto**.
+
 Chiudendo la finestra TabDeck resta attivo: la sua icona è vicino all'orologio (clic = riapri, clic destro =
 Riavvia / Esci). All'accensione del PC parte già nascosto, solo con l'icona.
 

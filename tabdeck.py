@@ -52,7 +52,7 @@ SECTIONS = [("avvio", "Preferiti"), ("sistema", "Sistema"), ("strumenti", "Strum
 # Riga Preferiti, da sinistra a destra (a destra = vicino alla mano). In fondo c'e' sempre "Altre app"
 # con tutti i gruppi (Browser, Launcher, Giochi). Ogni id deve esistere in BUTTONS.
 # "_yt" = riquadro YouTube (tocco = sezione YouTube, scorri su = player sul PC); Spotify resta in "Altre app".
-DEFAULT_FAV = ["opera_gx", "discord", "_yt", "steam", "helldivers2", "explorer"]
+DEFAULT_FAV = ["firefox", "_yt", "discord", "steam", "helldivers2"]
 FAVORITES = list(DEFAULT_FAV)
 GROUPS = [
     {"id": "browser",  "sec": "avvio", "cat": "app",  "icon": "globe", "label": "Browser"},
@@ -81,6 +81,7 @@ BUTTONS = [
     {"id": "task_view",  "sec": "sistema", "cat": "win", "icon": "grid",     "label": "Task View",       "hint": "Win+Tab",     "keys": ["WIN", "TAB"]},
     {"id": "taskmgr",    "sec": "sistema", "cat": "win", "icon": "chart",    "label": "Gestione attivit\u00e0", "hint": "app",  "run": ["taskmgr.exe"]},
     {"id": "lock",       "sec": "sistema", "cat": "win", "icon": "lock",     "label": "Blocca PC",       "hint": "Win+L",       "keys": ["WIN", "L"]},
+    {"id": "run",        "sec": "sistema", "cat": "win", "icon": "monitor",  "label": "Esegui",          "hint": "Win+R",       "keys": ["WIN", "R"]},
 
     {"id": "copy",       "sec": "strumenti", "cat": "edit", "icon": "copy",   "label": "Copia",        "hint": "Ctrl+C", "keys": ["CTRL", "C"]},
     {"id": "paste",      "sec": "strumenti", "cat": "edit", "icon": "paste",  "label": "Incolla",      "hint": "Ctrl+V", "keys": ["CTRL", "V"]},
@@ -349,6 +350,7 @@ ICONS = {
     "headset":  "M4 15v-3a8 8 0 0 1 16 0v3 M4 14h4v7H4z M16 14h4v7h-4z",
     "headset_off": "M4 15v-3a8 8 0 0 1 16 0v3 M4 14h4v7H4z M16 14h4v7h-4z M3 3l18 18",
     "leave":    "M10 4H5v16h5 M14 8l4 4-4 4 M18 12H9",
+    "cog":      "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6 M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z",  # Feather "settings" (MIT)
     "gear":     "M12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7 M12 2v4 M12 18v4 M2 12h4 M18 12h4 M4.9 4.9l2.8 2.8 M16.3 16.3l2.8 2.8 M4.9 19.1l2.8-2.8 M16.3 7.7l2.8-2.8",
 }
 
@@ -471,9 +473,13 @@ LAYOUT_FILE = os.path.join(DATA_DIR, "layout.json")
 FAV_MAX = 10
 ROW_SIDS = ("avvio", "sistema", "strumenti")
 SPECIALS = ("_vol", "_mic", "_yt")
-ROWS = {"avvio": FAVORITES,
-        "sistema": [b["id"] for b in BUTTONS if b.get("sec") == "sistema"] + ["_vol"],
-        "strumenti": [b["id"] for b in BUTTONS if b.get("sec") == "strumenti"] + ["_mic"]}
+# righe di un'installazione nuova (chi ha gia' salvato le sue le tiene): le altre scorciatoie restano in "Aggiungi"
+DEFAULT_ROWS = {"sistema": ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer"],
+                "strumenti": ["notepad", "calc", "run", "screenshot", "snip", "_mic"]}
+ROWS = {"avvio": FAVORITES, "sistema": list(DEFAULT_ROWS["sistema"]), "strumenti": list(DEFAULT_ROWS["strumenti"])}
+# righe di chi ha un layout.json di prima che le righe si salvassero (solo "fav"): restano quelle che vedeva allora
+LEGACY_ROWS = {sid: [b["id"] for b in BUTTONS if b.get("sec") == sid and b["id"] != "run"] + [extra]
+               for sid, extra in (("sistema", "_vol"), ("strumenti", "_mic"))}
 CUSTOM_KEYS = []      # scorciatoie create dal tablet: {"id", "label", "keys", "icon"}
 MODS = ["CTRL", "SHIFT", "ALT", "WIN"]
 KEY_CHOICES = ([chr(c) for c in range(ord("A"), ord("Z") + 1)] + [str(d) for d in range(10)] + ["F%d" % n for n in range(1, 13)] +
@@ -608,8 +614,8 @@ def apply_layout():
             CUSTOM_KEYS.append({"id": k["id"], "label": k["label"].strip(), "keys": k["keys"], "icon": k.get("icon") or ""})
             _put_button(key_button(k))
     saved = data.get("rows") if isinstance(data.get("rows"), dict) else {}
-    rows = {"avvio": data.get("fav") or ROWS["avvio"], "sistema": saved.get("sistema", ROWS["sistema"]),
-            "strumenti": saved.get("strumenti", ROWS["strumenti"])}
+    rows = {"avvio": data.get("fav") or ROWS["avvio"], "sistema": saved.get("sistema", LEGACY_ROWS["sistema"]),
+            "strumenti": saved.get("strumenti", LEGACY_ROWS["strumenti"])}
     rows = clean_rows(yt_migrate(rows, bool(data.get("yt_added"))))
     FAVORITES[:] = rows["avvio"]
     ROWS["sistema"][:] = rows["sistema"]
@@ -3262,9 +3268,9 @@ def render_general():
                         '<div class="ggrid">%s</div></div></div>' % "".join(parts))
         else:
             tiles = [row_tile(i) for i in ROWS[sid]]
+        # le finestre aperte non stanno piu' qui: sono nella fascia a destra, visibile in ogni sezione
         secs.append('<div class="sec sec-%s"><div class="sh">%s</div><div class="row">%s</div></div>'
                     % (sid, html.escape(title), "".join(tiles)))
-    secs.append('<div class="sec sec-wins"><div class="sh">Finestre <span id="wcount"></span></div><div id="tbar"></div></div>')
     return '<div id="secs">%s</div>' % "".join(secs), "".join(pops)
 
 
@@ -3522,7 +3528,7 @@ def render_page(token, device=""):
                                                 for k, lab in PAD_KEYS))
     return (page.replace("__BUTTONS__", general).replace("__POPS__", pops).replace("__STRATS__", "".join(strats))
             .replace("__JUMP__", "".join(jump))
-            .replace("__FULLICON__", svg("full")).replace("__GEARICON__", svg("gear")).replace("__NAVICON__", svg("grid"))
+            .replace("__FULLICON__", svg("full")).replace("__GEARICON__", svg("cog")).replace("__NAVICON__", svg("grid"))
             .replace("__KEYGRID__", "".join('<div data-k="%s">%s</div>' % (k, html.escape(KEY_PRETTY.get(k, k))) for k in KEY_CHOICES))
             .replace("__MODGRID__", "".join('<div data-m="%s">%s</div>' % (m, KEY_PRETTY[m]) for m in MODS))
             .replace("__ICONGRID__", '<div data-i="">Aa</div>' + "".join('<div data-i="%s">%s</div>' % (n, svg(n)) for n in ICONS))
@@ -3688,6 +3694,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, "404")
         if u.path == "/layout":
             return self._send(200, json.dumps(layout_info()), "application/json")
+        if u.path == "/general":   # Generale rifatto dopo "Salva": la pagina lo sostituisce senza ricaricarsi
+            secs, pops = render_general()
+            return self._send(200, json.dumps({"secs": secs, "pops": pops}), "application/json")
         if u.path == "/yts":    # ricerca YouTube dal tablet
             yq = (q.get("q") or [""])[0].strip()
             if not yq or len(yq) > 200:
