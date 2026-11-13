@@ -4604,6 +4604,18 @@ class _App:
         ip = STATUS.get("ip") if STATUS.get("state") == "listening" else None
         return "http://%s:%d/?t=%s" % (ip, PORT, SERVER.token) if ip and SERVER is not None else None
 
+    undo_info = staticmethod(undo_info)
+    undo = staticmethod(undo_last)
+
+    def open_page(self):
+        """La pagina completa nel browser del PC (pc=1: entra come "Questo PC", senza codice)."""
+        url = self.pair_url()
+        if not url:
+            return False
+        import webbrowser
+        webbrowser.open(url + "&pc=1")
+        return True
+
     def make_tray(self, on_open, on_restart, on_quit):
         global _TRAY
         try:

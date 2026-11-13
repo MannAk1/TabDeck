@@ -66,8 +66,14 @@ def save(dirpath, label, layout, settings, keep=KEEP, now=time.time):
 
 
 def latest(dirpath):
-    es = entries(dirpath)
-    return es[0] if es else None
+    for n in _files(dirpath):
+        p = os.path.join(dirpath, n)
+        e = _read(p)
+        if e is not None:
+            e["file"] = p
+            return e
+        _drop(p)
+    return None
 
 
 def pop(dirpath):
