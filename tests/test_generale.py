@@ -1,3 +1,4 @@
+import json
 import os
 import socket
 import sys
@@ -68,6 +69,26 @@ class GeneraleTest(unittest.TestCase):
         secs, _ = tabdeck.render_general()
         self.assertNotIn("sec-wins", secs)
         self.assertNotIn('id="tbar"', secs)
+
+    def _get(self, path, token=True):
+        req = urllib.request.Request(self.base + path, headers={"X-Token": TOKEN} if token else {})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, None
+
+    def test_general_endpoint_returns_fresh_markup(self):
+        # dopo "Salva" la pagina rifa' Generale da qui, senza ricaricarsi
+        st, j = self._get("/general")
+        self.assertEqual(st, 200)
+        secs, pops = tabdeck.render_general()
+        self.assertEqual(j, {"secs": secs, "pops": pops})
+        tabdeck.ROWS["strumenti"][:] = ["_mic"]
+        self.assertEqual(self._get("/general")[1]["secs"], tabdeck.render_general()[0])
+
+    def test_general_endpoint_needs_token(self):
+        self.assertEqual(self._get("/general", token=False)[0], 403)
 
     def test_page_bar_has_cog_and_no_fullscreen_button(self):
         page = self._page()

@@ -3689,6 +3689,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, "404")
         if u.path == "/layout":
             return self._send(200, json.dumps(layout_info()), "application/json")
+        if u.path == "/general":   # Generale rifatto dopo "Salva": la pagina lo sostituisce senza ricaricarsi
+            secs, pops = render_general()
+            return self._send(200, json.dumps({"secs": secs, "pops": pops}), "application/json")
         if u.path == "/yts":    # ricerca YouTube dal tablet
             yq = (q.get("q") or [""])[0].strip()
             if not yq or len(yq) > 200:

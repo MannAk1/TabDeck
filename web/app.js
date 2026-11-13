@@ -425,9 +425,34 @@ wmenu.addEventListener("click", function (e) {      /* fase di cattura: prima de
 wmenu.addEventListener("click", function (e) { if (e.target === wmenu) { cls(wmenu, "show", false); } }, false);
 /* gruppi (browser, launcher, giochi): si aprono in una finestra */
 function openGroup(id) { cls(document.getElementById("pop_" + id), "show", true); }
-[].forEach.call(document.getElementsByClassName("gpop"), function (p) {
+function bindPop(p) {
   p.addEventListener("click", function (e) { if (e.target === p || e.target.classList.contains("gx")) { cls(p, "show", false); } }, false);
-});
+}
+[].forEach.call(document.getElementsByClassName("gpop"), bindPop);
+/* Generale rifatto dal PC (dopo aver salvato i pulsanti): si sostituisce sul posto, senza ricaricare la pagina.
+   I riferimenti tenuti da parte (volume, microfono, Discord, gruppi) vanno ripresi dai nuovi riquadri. */
+function refreshGeneral(done) {
+  dcGet("/general", function (code, j) {
+    if (code !== 200 || !j || typeof j.secs !== "string") { location.reload(); return; }   /* ripiego sicuro */
+    var grid = document.getElementById("grid"), tmp = document.createElement("div"), fresh = [grid], nodes, ref;
+    grid.innerHTML = j.secs;
+    tmp.innerHTML = j.pops;
+    nodes = [].slice.call(tmp.childNodes);
+    nodes.forEach(function (p) { var old = p.id && document.getElementById(p.id); if (old) { old.parentNode.removeChild(old); } });
+    ref = grid.nextSibling;   /* preso dopo aver tolto i vecchi: potevano essere proprio loro */
+    nodes.forEach(function (p) {
+      grid.parentNode.insertBefore(p, ref);
+      if (p.classList && p.classList.contains("gpop")) { bindPop(p); fresh.push(p); }
+    });
+    fresh.forEach(function (box) { [].forEach.call(box.querySelectorAll(".b"), bind); });
+    valEl = document.getElementById("volval"); svolEl = document.getElementById("svol");
+    micEls = [document.getElementById("vmic"), document.getElementById("smic")].filter(function (e) { return e; });
+    dcTile = document.querySelector('#grid .b[data-id="discord"]'); dcHint = dcTile && dcTile.querySelector(".h");
+    GRP_HTML = {}; runKey = ""; renderRun(RUN); paintVol();
+    if (curTab === "grid") { ping(); }
+    if (done) { done(); }
+  });
+}
 function tile(id) { return document.querySelector('#hd2all .s[data-id="' + id + '"]'); }
 function cloneInto(box, id) {
   var t = tile(id); if (!t) { return; }
@@ -762,7 +787,7 @@ document.getElementById("favundo").addEventListener("click", function () { edRow
 document.getElementById("favok").addEventListener("click", function () {
   var body = RIDS.map(function (r) { return r + "=" + encodeURIComponent(ED.rows[r].map(function (f) { return f.id; }).join(",")); }).join("&");
   post("/layout", body, function (code, txt) {
-    if (code === 200) { status("ok", "Pulsanti salvati, ricarico..."); setTimeout(function () { location.reload(); }, 600); }
+    if (code === 200) { refreshGeneral(function () { status("ok", "Pulsanti salvati"); favLoad(); }); }
     else { status("err", txt && code !== 0 ? txt : code === 0 ? "PC non raggiungibile" : "Errore " + code); }
   });
 }, false);
