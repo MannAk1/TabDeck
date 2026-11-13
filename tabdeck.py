@@ -2294,8 +2294,84 @@ def _mouse(flags, dx=0, dy=0, data=0):
     return _INPUT(type=0, u=_INPUTUNION(mi=_MOUSEINPUT(dx, dy, data & 0xffffffff, flags, 0, 0)))
 
 
+class MouseSmoother:
+    """Il tablet manda i movimenti a pacchetti (la rete del hotspot ha ~70 ms di andata e ritorno): invece di un salto
+    unico, ogni pacchetto si distribuisce in piccoli passi ogni ~4 ms. Il totale resta esatto (interi)."""
+    TICK = 0.004
+    PART = 0.4          # quota del movimento rimasto spedita a ogni passo
+
+    def __init__(self, send):
+        self.send = send
+        self.lock = threading.Lock()
+        self.emit = threading.Lock()   # un passo gia' preso e un clic non si scavalcano
+        self.px = self.py = 0
+        self.wake = threading.Event()
+        self.thread = None
+
+    @staticmethod
+    def _part(p, f):
+        if p == 0:
+            return 0
+        s = int(p * f)
+        return s if s else (1 if p > 0 else -1)
+
+    def move(self, dx, dy):
+        with self.lock:
+            self.px += dx
+            self.py += dy
+
+    def take(self):
+        with self.lock:
+            sx, sy = self._part(self.px, self.PART), self._part(self.py, self.PART)
+            self.px -= sx
+            self.py -= sy
+            return sx, sy
+
+    def flush(self):
+        with self.lock:
+            r = (self.px, self.py)
+            self.px = self.py = 0
+            return r
+
+    def push(self, dx, dy):
+        self.move(dx, dy)
+        if self.thread is None:
+            self.thread = threading.Thread(target=self._run, name="mouse", daemon=True)
+            self.thread.start()
+        self.wake.set()
+
+    def _run(self):
+        while True:
+            self.wake.wait()
+            self.wake.clear()
+            while True:
+                with self.emit:
+                    dx, dy = self.take()
+                    if not (dx or dy):
+                        break
+                    try:
+                        self.send(dx, dy)
+                    except OSError:
+                        pass
+                time.sleep(self.TICK)
+
+
+SMOOTH = MouseSmoother(lambda dx, dy: _send_inputs([_mouse(0x1, dx, dy)]))
+
+
 def mouse_input(dx=0, dy=0, wheel=0, hwheel=0, buttons=()):
-    """Movimento relativo (con l'accelerazione di Windows), rotella verticale/orizzontale, poi i pulsanti."""
+    """Movimento relativo (con l'accelerazione di Windows), rotella verticale/orizzontale, poi i pulsanti.
+    Senza pulsanti il movimento va a SMOOTH (a passi); con un pulsante prima arriva tutto il movimento rimasto."""
+    if buttons:
+        with SMOOTH.emit:
+            fx, fy = SMOOTH.flush()
+            return _mouse_now(dx + fx, dy + fy, wheel, hwheel, buttons)
+    if dx or dy:
+        SMOOTH.push(dx, dy)
+    _mouse_now(0, 0, wheel, hwheel, ())
+
+
+def _mouse_now(dx, dy, wheel, hwheel, buttons):
     items = []
     if dx or dy:
         items.append(_mouse(0x1, dx, dy))                 # MOUSEEVENTF_MOVE

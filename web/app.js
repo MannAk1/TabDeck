@@ -1364,16 +1364,16 @@ function loadAudio() {
 setInterval(function () { if (curTab === "mix" && !document.hidden) { loadAudio(); } }, 1500);
 setInterval(function () { if (curTab === "mix" && NP.play) { paintNP(); } }, 1000);
 /* scheda Touchpad: movimenti accumulati e spediti con al massimo una richiesta in volo (si adatta alla rete) */
-var PADQ = {dx: 0, dy: 0, w: 0, hw: 0, b: [], busy: false}, PAD_SPEED = {slow: 1.3, med: 2.1, fast: 3.2};
+var PADQ = {dx: 0, dy: 0, w: 0, hw: 0, b: [], busy: 0}, PAD_SPEED = {slow: 1.3, med: 2.1, fast: 3.2}, PAD_FLIGHT = 3;
 function padFlush() {
   var q = PADQ;
-  if (q.busy) { return; }
+  if (q.b.length ? q.busy > 0 : q.busy >= PAD_FLIGHT) { return; }   /* un clic parte solo dopo i movimenti prima di lui */
   var dx = Math.round(q.dx), dy = Math.round(q.dy), w = Math.round(q.w), hw = Math.round(q.hw);
   if (!dx && !dy && !w && !hw && !q.b.length) { return; }
   var body = "dx=" + dx + "&dy=" + dy + "&w=" + w + "&hw=" + hw + "&b=" + q.b.join(",");
-  q.dx -= dx; q.dy -= dy; q.w -= w; q.hw -= hw; q.b = []; q.busy = true;
+  q.dx -= dx; q.dy -= dy; q.w -= w; q.hw -= hw; q.b = []; q.busy++;
   post("/mouse", body, function (code) {
-    q.busy = false;
+    q.busy--;
     if (code !== 200) { status("err", code === 0 ? "PC non raggiungibile" : code === 500 ? "Windows ha bloccato il mouse (finestra admin?)" : "Errore " + code); }
     padFlush();
   });
@@ -1381,6 +1381,24 @@ function padFlush() {
 /* la tastiera Android chiusa col tasto Indietro lascia il campo attivo: toccando il touchpad si riaprirebbe */
 function kBlur() { var k = document.getElementById("kin"); if (document.activeElement === k) { k.blur(); } }
 function padBtn(b) { PADQ.b.push(b); padFlush(); }
+var FL = {v: 0, t: 0, id: null};   /* v = velocita' dello scorrimento (px/ms), t = ultimo movimento */
+function flStop() { if (FL.id) { clearInterval(FL.id); FL.id = null; } }
+function flTrack(dy) {   /* chiamata a ogni movimento di scorrimento: media della velocita' recente */
+  var now = Date.now(), dt = Math.max(8, now - FL.t);
+  FL.v = FL.t && dt < 100 ? 0.6 * FL.v + 0.4 * (dy / dt) : dy / dt;
+  FL.t = now;
+}
+function flGo() {   /* al rilascio: se si scorreva veloce, continua e rallenta (~0,8 s) */
+  var v = FL.v;
+  flStop();
+  if (Date.now() - FL.t > 80 || Math.abs(v) < 0.25) { FL.t = 0; return; }
+  FL.t = 0;
+  FL.id = setInterval(function () {
+    PADQ.w += v * 16 * 6; padFlush();
+    v *= 0.93;
+    if (Math.abs(v) < 0.03) { flStop(); }
+  }, 16);
+}
 (function () {
   var tp = $("tp"), pts = {}, maxN = 0, t0 = 0, travel = 0;
   function k() { return PAD_SPEED[SETTINGS.pad] || 2.1; }
@@ -1392,7 +1410,8 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
   tp.addEventListener("touchstart", function (e) {
     e.preventDefault();
     kBlur();
-    if (!maxN) { t0 = Date.now(); travel = 0; }
+    flStop();
+    if (!maxN) { t0 = Date.now(); travel = 0; FL.t = 0; }
     pts = snap(e); maxN = Math.max(maxN, e.targetTouches.length); cls(tp, "on", true);
   }, {passive: false});
   tp.addEventListener("touchmove", function (e) {
@@ -1403,10 +1422,11 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
     if (!n) { return; }
     sx /= n; sy /= n; travel += Math.abs(sx) + Math.abs(sy);
     if (e.targetTouches.length === 1 && maxN === 1) {
-      d = Math.abs(sx) + Math.abs(sy); f = k() * (d > 12 ? 1.8 : d > 5 ? 1.3 : 1);  /* un po' di accelerazione */
+      d = Math.abs(sx) + Math.abs(sy); f = k() * (1 + Math.min(d, 40) / 16);  /* lenti = precisi, veloci = lontano */
       PADQ.dx += sx * f; PADQ.dy += sy * f;
     } else if (e.targetTouches.length >= 2) {
       PADQ.w += sy * 6; PADQ.hw -= sx * 6;   /* scorrimento "naturale" come sul telefono */
+      flTrack(sy);
     }
     padFlush();
   }, {passive: false});
@@ -1416,6 +1436,7 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
     if (e.targetTouches.length) { return; }
     cls(tp, "on", false);
     if (travel < 12 && Date.now() - t0 < 300 && !multiActive) { padBtn(maxN >= 3 ? "mc" : maxN === 2 ? "rc" : "lc"); }
+    else if (maxN >= 2) { flGo(); }
     maxN = 0;
   }
   tp.addEventListener("touchend", end, {passive: false});
@@ -1425,6 +1446,7 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
     var w = document.querySelector("#tpb .tw"), y = null, moved = 0, wT = 0;
     w.addEventListener("touchstart", function (e) {
       if (e.cancelable) { e.preventDefault(); }
+      flStop(); FL.t = 0;
       kBlur(); wT = Date.now(); y = e.touches[0].clientY; moved = 0; cls(w, "on", true);
     }, {passive: false});
     w.addEventListener("touchmove", function (e) {
@@ -1432,11 +1454,11 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
       if (y === null) { return; }
       var ny = e.touches[0].clientY, dy = ny - y;
       y = ny; moved += Math.abs(dy);
-      if (moved > 6) { PADQ.w += dy * 6; padFlush(); }
+      if (moved > 6) { PADQ.w += dy * 6; padFlush(); flTrack(dy); }
     }, {passive: false});
     function wend(e) {
       if (e.cancelable) { e.preventDefault(); }
-      if (y !== null && moved <= 6) { padBtn("mc"); }
+      if (y !== null && moved <= 6) { padBtn("mc"); } else if (y !== null) { flGo(); }
       y = null; cls(w, "on", false);
     }
     w.addEventListener("touchend", wend, {passive: false});
