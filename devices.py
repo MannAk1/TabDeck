@@ -154,6 +154,18 @@ class DeviceStore:
             self._changed()
             return True
 
+    def admit(self, dev_id, ip, ua, name):
+        """Il PC stesso ("Apri TabDeck sul PC", token giusto): approvato subito, senza codice."""
+        with self._lock:
+            if not valid_id(dev_id):
+                dev_id = new_id()
+            for pip in [p for p, x in self._pend.items() if x["id"] == dev_id]:
+                del self._pend[pip]
+            t = self.now()
+            self._dev[dev_id] = {"name": name, "ua": (ua or "")[:200], "ip": ip, "added": t, "last": t}
+            self._changed()
+            return "ok", dev_id
+
     def refuse(self, dev_id):
         with self._lock:
             ip, p = self._pending_of(dev_id)

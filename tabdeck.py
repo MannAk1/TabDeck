@@ -3580,6 +3580,12 @@ def web_manifest(token):
                       {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"}]}
 
 
+def pc_admit(client_ip, bound_ip, query):
+    """Pagina aperta dal pulsante "Apri TabDeck sul PC": stesso indirizzo del server (quindi dal PC) e pc=1.
+    Il token giusto si controlla prima; dagli altri indirizzi pc=1 non conta nulla."""
+    return client_ip == bound_ip and (query.get("pc") or [""])[0] == "1"
+
+
 def pair_allowed(client_ip, bound_ip):
     """La pagina /pair mostra il token: la si apre solo dal PC stesso (stesso indirizzo o localhost)."""
     return client_ip in (bound_ip, "127.0.0.1")
@@ -3717,6 +3723,8 @@ class Handler(BaseHTTPRequestHandler):
             return store.access(dev, ip, ua)
         if not tok:
             return "bad", None
+        if pc_admit(ip, self.server.server_address[0], query):
+            return store.admit(dev, ip, ua, "Questo PC")
         if create or dev:
             # chi manda gia' un ID (la pagina lo fa sempre) viene registrato: niente accessi che non compaiono
             # nell'elenco, e un dispositivo tolto torna "in attesa" alla sua prossima azione
