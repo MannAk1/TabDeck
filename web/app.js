@@ -214,8 +214,19 @@ setInterval(function () {
   ping();
 }, 1500);
 setInterval(function () { if (curTab === "hd2" && !document.hidden) { ping(); } }, 500);   /* ricariche piu' reattive */
-/* finestre del PC: aggiornate ogni 2 s mentre la scheda e' aperta; tocco = porta in primo piano */
-var winKey = "", curTab = "grid", tbar = document.getElementById("tbar"), WORDER = [];
+/* finestre del PC: fascia fissa a destra in ogni sezione (vicina alla mano). Tocco = porta in primo piano,
+   tenendo premuto = menu della finestra. La maniglia in alto (o uno scorrimento verso sinistra) allarga la fascia
+   coi titoli; un tocco fuori o la scelta di una finestra la richiude. */
+var winKey = "", curTab = "grid", WORDER = [], wband = document.createElement("div"), wlist;
+wband.id = "wband";
+wband.innerHTML = '<div class="wbg"><span>&lsaquo;</span></div><div class="wbl"></div>';
+document.body.appendChild(wband);
+wlist = wband.querySelector(".wbl");
+function wbPeek(on) { cls(wband, "peek", on); }
+/* la fascia finisce dove comincia la barra in basso (alta in modo diverso su telefono) */
+function wbFit() { var bar = document.getElementById("bar"); if (bar) { wband.style.bottom = bar.offsetHeight + "px"; } }
+window.addEventListener("resize", wbFit, false);
+wbFit();
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }
 function hue(s) { var h = 0; for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) % 360; } return h; }
 function renderWins(list) {
@@ -224,32 +235,48 @@ function renderWins(list) {
   WORDER = WORDER.filter(function (h) { return byH[h]; });
   for (i = list.length - 1; i >= 0; i--) { if (WORDER.indexOf(list[i].h) < 0) { WORDER.push(list[i].h); } }   /* nuove in fondo */
   var ord = WORDER.map(function (h) { return byH[h]; }), key = JSON.stringify(ord.map(function (w) { return [w.h, w.x, w.i, w.t]; }));
-  if (key === winKey || tbar.querySelector(".on, .held")) {   /* stesse finestre: solo le classi (o niente sotto il dito) */
+  if (key === winKey || wlist.querySelector(".on, .held")) {   /* stesse finestre: solo le classi (o niente sotto il dito) */
     if (key === winKey) {
-      [].forEach.call(tbar.getElementsByClassName("tk"), function (el) {
+      [].forEach.call(wlist.getElementsByClassName("wt"), function (el) {
         var w = byH[el.getAttribute("data-hw")]; if (w) { cls(el, "fg", w.fg); cls(el, "mn", w.min); }
       });
     }
     return;
   }
   winKey = key;
-  document.getElementById("wcount").textContent = "(" + list.length + ")";
-  tbar.innerHTML = ord.map(function (w) {
+  wlist.innerHTML = ord.map(function (w) {
     var app = w.x.replace(/\.exe$/i, ""), mono = app.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
     var img = w.i ? '<img src="/appicon/' + w.i + '.png" alt="" onload="this.previousSibling.style.visibility=\'hidden\'" onerror="this.parentNode.removeChild(this)">' : "";
-    return '<button class="b tk' + (w.fg ? " fg" : "") + (w.min ? " mn" : "") + '" data-hw="' + w.h + '" data-n="' + esc(w.t) +
-      '" style="--c:hsl(' + hue(app.toLowerCase()) + ',65%,62%)"><span>' + esc(mono) + "</span>" + img + "</button>";
-  }).join("");
-  [].forEach.call(tbar.getElementsByClassName("tk"), bind);
+    return '<button class="b wt' + (w.fg ? " fg" : "") + (w.min ? " mn" : "") + '" data-hw="' + w.h + '" data-n="' + esc(w.t) +
+      '" style="--c:hsl(' + hue(app.toLowerCase()) + ',65%,62%)"><span class="wi"><span>' + esc(mono) + "</span>" + img +
+      '</span><span class="wtt"><b>' + esc(w.t) + "</b><i>" + esc(app) + "</i></span></button>";
+  }).join("") || '<div class="wbe">&ndash;</div>';
+  [].forEach.call(wlist.getElementsByClassName("wt"), bind);
 }
 document.addEventListener("contextmenu", function (e) { e.preventDefault(); }, false);   /* niente menu del tablet tenendo premuto */
-/* troppe finestre: la striscia scorre di lato col dito */
+/* maniglia: tocco = allarga/stringe; scorrimento orizzontale sulla fascia = allarga (verso sinistra) o stringe */
 (function () {
-  var x0 = 0, sl = 0;
-  tbar.addEventListener("touchstart", function (e) { if (e.touches.length === 1) { x0 = e.touches[0].clientX; sl = tbar.scrollLeft; } }, {passive: true});
-  tbar.addEventListener("touchmove", function (e) { if (e.touches.length === 1) { tbar.scrollLeft = sl - (e.touches[0].clientX - x0); } }, {passive: true});
+  var g = wband.querySelector(".wbg"), x0 = 0, y0 = 0;
+  g.addEventListener("touchend", function (e) { if (e.cancelable) { e.preventDefault(); } wbPeek(!wband.classList.contains("peek")); }, false);
+  g.addEventListener("click", function () { wbPeek(!wband.classList.contains("peek")); }, false);   /* mouse */
+  wband.addEventListener("touchstart", function (e) { if (e.touches.length === 1) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, {passive: true});
+  wband.addEventListener("touchend", function (e) {
+    var t = e.changedTouches && e.changedTouches[0], dx, dy;
+    if (!t) { return; }
+    dx = t.clientX - x0; dy = t.clientY - y0;
+    if (Math.abs(dx) > 30 && Math.abs(dx) > 1.5 * Math.abs(dy)) { wbPeek(dx < 0); }
+  }, {passive: true});
+  document.addEventListener("touchstart", function (e) {
+    if (wband.classList.contains("peek") && !(e.target.closest && e.target.closest("#wband"))) { wbPeek(false); }
+  }, {capture: true, passive: true});
 })();
+/* fuori da Generale le finestre non arrivano con /state: si chiedono a parte, solo a pagina visibile */
+setInterval(function () {
+  if (curTab === "grid" || document.hidden || document.body.classList.contains("setopen")) { return; }
+  dcGet("/windows", function (code, j) { if (code === 200 && j && j.length !== undefined) { renderWins(j); } });
+}, 1200);
 function focusWin(el) {
+  if (wband.classList.contains("peek")) { setTimeout(function () { wbPeek(false); }, 600); }
   cls(el, "on", true);
   post("/focus", "h=" + encodeURIComponent(el.getAttribute("data-hw")), function (code, txt) {
     cls(el, "on", false);
@@ -309,7 +336,7 @@ function focusPost(el, r, keep) {
 }
 /* dopo un'azione su una finestra: aggiorna subito l'elenco visibile */
 function afterWin(j) {
-  if (curTab === "grid" && j && j.w) { renderWins(j.w); }
+  if (j && j.w) { renderWins(j.w); }
   if (curTab === "grid") { setTimeout(ping, 300); }
 }
 /* finestra legata a un riquadro: riquadri della scheda Finestre o app attive di Generale */

@@ -349,6 +349,7 @@ ICONS = {
     "headset":  "M4 15v-3a8 8 0 0 1 16 0v3 M4 14h4v7H4z M16 14h4v7h-4z",
     "headset_off": "M4 15v-3a8 8 0 0 1 16 0v3 M4 14h4v7H4z M16 14h4v7h-4z M3 3l18 18",
     "leave":    "M10 4H5v16h5 M14 8l4 4-4 4 M18 12H9",
+    "cog":      "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6 M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z",  # Feather "settings" (MIT)
     "gear":     "M12 8.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7 M12 2v4 M12 18v4 M2 12h4 M18 12h4 M4.9 4.9l2.8 2.8 M16.3 16.3l2.8 2.8 M4.9 19.1l2.8-2.8 M16.3 7.7l2.8-2.8",
 }
 
@@ -468,7 +469,7 @@ for _f in FAVORITES:
 #     {"fav": [id...], "rows": {"sistema": [...], "strumenti": [...]}, "custom": [app...], "keys": [scorciatoie...]}
 # "_vol", "_mic", "_yt" sono i riquadri speciali Volume, Microfono e YouTube (uno solo ciascuno).
 LAYOUT_FILE = os.path.join(DATA_DIR, "layout.json")
-FAV_MAX = 10
+FAV_MAX = 24
 ROW_SIDS = ("avvio", "sistema", "strumenti")
 SPECIALS = ("_vol", "_mic", "_yt")
 ROWS = {"avvio": FAVORITES,
@@ -3262,9 +3263,10 @@ def render_general():
                         '<div class="ggrid">%s</div></div></div>' % "".join(parts))
         else:
             tiles = [row_tile(i) for i in ROWS[sid]]
-        secs.append('<div class="sec sec-%s"><div class="sh">%s</div><div class="row">%s</div></div>'
-                    % (sid, html.escape(title), "".join(tiles)))
-    secs.append('<div class="sec sec-wins"><div class="sh">Finestre <span id="wcount"></span></div><div id="tbar"></div></div>')
+        # il pulsante a destra del titolo avvia "Disponi": riquadri trascinabili (le finestre stanno nella fascia a destra)
+        secs.append('<div class="sec sec-%s" data-sid="%s"><div class="sh">%s<button class="arr" data-arr="%s" aria-label="Disponi">'
+                    '&#10021;</button></div><div class="row">%s</div></div>'
+                    % (sid, sid, html.escape(title), sid, "".join(tiles)))
     return '<div id="secs">%s</div>' % "".join(secs), "".join(pops)
 
 
@@ -3522,7 +3524,7 @@ def render_page(token, device=""):
                                                 for k, lab in PAD_KEYS))
     return (page.replace("__BUTTONS__", general).replace("__POPS__", pops).replace("__STRATS__", "".join(strats))
             .replace("__JUMP__", "".join(jump))
-            .replace("__FULLICON__", svg("full")).replace("__GEARICON__", svg("gear")).replace("__NAVICON__", svg("grid"))
+            .replace("__FULLICON__", svg("full")).replace("__GEARICON__", svg("cog")).replace("__NAVICON__", svg("grid"))
             .replace("__KEYGRID__", "".join('<div data-k="%s">%s</div>' % (k, html.escape(KEY_PRETTY.get(k, k))) for k in KEY_CHOICES))
             .replace("__MODGRID__", "".join('<div data-m="%s">%s</div>' % (m, KEY_PRETTY[m]) for m in MODS))
             .replace("__ICONGRID__", '<div data-i="">Aa</div>' + "".join('<div data-i="%s">%s</div>' % (n, svg(n)) for n in ICONS))
