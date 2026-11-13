@@ -477,6 +477,9 @@ SPECIALS = ("_vol", "_mic", "_yt")
 DEFAULT_ROWS = {"sistema": ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer"],
                 "strumenti": ["notepad", "calc", "run", "screenshot", "snip", "_mic"]}
 ROWS = {"avvio": FAVORITES, "sistema": list(DEFAULT_ROWS["sistema"]), "strumenti": list(DEFAULT_ROWS["strumenti"])}
+# righe di chi ha un layout.json di prima che le righe si salvassero (solo "fav"): restano quelle che vedeva allora
+LEGACY_ROWS = {sid: [b["id"] for b in BUTTONS if b.get("sec") == sid and b["id"] != "run"] + [extra]
+               for sid, extra in (("sistema", "_vol"), ("strumenti", "_mic"))}
 CUSTOM_KEYS = []      # scorciatoie create dal tablet: {"id", "label", "keys", "icon"}
 MODS = ["CTRL", "SHIFT", "ALT", "WIN"]
 KEY_CHOICES = ([chr(c) for c in range(ord("A"), ord("Z") + 1)] + [str(d) for d in range(10)] + ["F%d" % n for n in range(1, 13)] +
@@ -611,8 +614,8 @@ def apply_layout():
             CUSTOM_KEYS.append({"id": k["id"], "label": k["label"].strip(), "keys": k["keys"], "icon": k.get("icon") or ""})
             _put_button(key_button(k))
     saved = data.get("rows") if isinstance(data.get("rows"), dict) else {}
-    rows = {"avvio": data.get("fav") or ROWS["avvio"], "sistema": saved.get("sistema", ROWS["sistema"]),
-            "strumenti": saved.get("strumenti", ROWS["strumenti"])}
+    rows = {"avvio": data.get("fav") or ROWS["avvio"], "sistema": saved.get("sistema", LEGACY_ROWS["sistema"]),
+            "strumenti": saved.get("strumenti", LEGACY_ROWS["strumenti"])}
     rows = clean_rows(yt_migrate(rows, bool(data.get("yt_added"))))
     FAVORITES[:] = rows["avvio"]
     ROWS["sistema"][:] = rows["sistema"]

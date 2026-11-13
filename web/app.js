@@ -81,9 +81,14 @@ function paintLocal() {
   }, false);
 });
 paintLocal();
+if (!document.documentElement.requestFullscreen) {
+  var fsOpt = document.querySelector('.lseg[data-l="fs"]');
+  if (fsOpt) { fsOpt.parentNode.style.display = "none"; }
+}
 /* schermo intero: Chrome lo concede solo dopo un tocco, quindi lo chiediamo al primo tocco (se non e' disattivato) */
-function goFull() {
+function goFull(e) {
   var d = document.documentElement;
+  if (e && e.target && e.target.closest && e.target.closest(".lseg")) { return; }   /* il tocco sull'opzione decide da se' */
   if (LOCAL.fs === "on" && !document.fullscreenElement && d.requestFullscreen) {
     var p = d.requestFullscreen({navigationUI: "hide"});
     if (p && p.catch) { p.catch(function () {}); }
@@ -184,7 +189,7 @@ function bind(el) {
     var ct = e.changedTouches && e.changedTouches[0];
     if (ct && !live && !multi && !multiActive && !editMode && scroller.scrollTop === sc && lastScroll < t0) {
       var dx = ct.clientX - sx, dy = ct.clientY - sy, sw = winOf(el);
-      if (sw && Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) { winAct(el, sw, dy < 0 ? "max" : "min"); return; }
+      if (sw && !el.classList.contains("wbt") && Math.abs(dy) > 40 && Math.abs(dy) > 1.5 * Math.abs(dx)) { winAct(el, sw, dy < 0 ? "max" : "min"); return; }
       /* riquadro YouTube: scorri su = apri (o porta davanti) il player sul PC */
       if (el.hasAttribute("data-yt") && dy < -40 && Math.abs(dy) > 1.5 * Math.abs(dx)) { flash(el, "ok"); ytBtn("open", el); return; }
     }
@@ -241,7 +246,7 @@ setInterval(function () { if (curTab === "hd2" && !document.hidden) { ping(); } 
    coi titoli; un tocco fuori o la scelta di una finestra la richiude. */
 var winKey = "", curTab = "grid", WORDER = [], wband = document.createElement("div"), wlist;
 wband.id = "wband";
-wband.innerHTML = '<div class="wbg"><span>&lsaquo;</span></div><div class="wbl"></div>';
+wband.innerHTML = '<div class="wbg"><span>&lsaquo;</span></div><div class="wbl scroll"></div>';
 document.body.appendChild(wband);
 wlist = wband.querySelector(".wbl");
 function wbPeek(on) { cls(wband, "peek", on); }
@@ -293,9 +298,11 @@ document.addEventListener("contextmenu", function (e) { e.preventDefault(); }, f
   }, {capture: true, passive: true});
 })();
 /* fuori da Generale le finestre non arrivano con /state: si chiedono a parte, solo a pagina visibile */
+var wbBusy = false;
 setInterval(function () {
-  if (curTab === "grid" || document.hidden || document.body.classList.contains("setopen")) { return; }
-  dcGet("/windows", function (code, j) { if (code === 200 && j && j.length !== undefined) { renderWins(j); } });
+  if (wbBusy || curTab === "grid" || document.hidden || document.body.classList.contains("setopen")) { return; }
+  wbBusy = true;
+  dcGet("/windows", function (code, j) { wbBusy = false; if (code === 200 && j && j.length !== undefined) { renderWins(j); } });
 }, 1200);
 function focusWin(el) {
   if (wband.classList.contains("peek")) { setTimeout(function () { wbPeek(false); }, 600); }
@@ -702,6 +709,7 @@ favrow.addEventListener("click", function (e) {
   var d = null;
   favrow.addEventListener("touchstart", function (e) {
     var fi = e.target.closest && e.target.closest(".fi"), p = e.touches[0], r;
+    if (d && d.g) { return; }   /* trascinamento in corso: il dito in piu' si ignora */
     if (!fi || !ED || e.touches.length !== 1) { d = null; return; }
     r = fi.getBoundingClientRect();
     d = {el: fi, x0: p.clientX, y0: p.clientY, dx: p.clientX - r.left, dy: p.clientY - r.top, w: r.width, h: r.height, g: null};
@@ -834,6 +842,7 @@ document.getElementById("kesave").addEventListener("click", function () {
     "&icon=" + encodeURIComponent(KE.icon), function (code, txt) {
     if (code !== 200) { status("err", code === 0 ? "PC non raggiungibile" : "Errore " + code); return; }
     try { keDone(JSON.parse(txt), isNew); } catch (e) {}
+    refreshGeneral();
   });
 }, false);
 document.getElementById("kedel").addEventListener("click", function () {
@@ -841,6 +850,7 @@ document.getElementById("kedel").addEventListener("click", function () {
   post("/layout", "a=delkey&id=" + encodeURIComponent(KE.id), function (code, txt) {
     if (code !== 200) { status("err", "Errore " + code); return; }
     try { keDone(JSON.parse(txt), false); status("ok", "Scorciatoia eliminata"); } catch (e) {}
+    refreshGeneral();
   });
 }, false);
 document.getElementById("newkey").addEventListener("click", function () { if (ED) { keOpen(null); } }, false);

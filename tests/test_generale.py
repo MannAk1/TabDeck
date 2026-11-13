@@ -78,6 +78,22 @@ class GeneraleTest(unittest.TestCase):
                 "strumenti": list(tabdeck.DEFAULT_ROWS["strumenti"])}
         self.assertEqual(tabdeck.clean_rows(rows), rows)   # tutti validi, nessuno in due righe
 
+    def test_old_layout_without_rows_keeps_the_old_rows(self):
+        # layout.json di prima delle righe (solo "fav"): Sistema/Strumenti restano quelli di allora, non i nuovi predefiniti
+        import json as _j
+        old = {sid: list(tabdeck.ROWS[sid]) for sid in tabdeck.ROW_SIDS}
+        try:
+            with open(tabdeck.LAYOUT_FILE, "w", encoding="utf-8") as fh:
+                _j.dump({"fav": ["discord"], "yt_added": True}, fh)
+            tabdeck.apply_layout()
+            self.assertEqual(tabdeck.ROWS["sistema"], tabdeck.LEGACY_ROWS["sistema"])
+            self.assertEqual(tabdeck.ROWS["strumenti"], tabdeck.LEGACY_ROWS["strumenti"])
+            self.assertIn("taskmgr", tabdeck.ROWS["sistema"])
+            self.assertIn("copy", tabdeck.ROWS["strumenti"])
+            self.assertNotIn("run", tabdeck.ROWS["sistema"] + tabdeck.ROWS["strumenti"])
+        finally:
+            tabdeck.save_layout(old)
+
     def test_run_dialog_is_a_builtin_button(self):
         b = tabdeck.BY_ID["run"]
         self.assertEqual((b["label"], b["keys"], b["icon"]), ("Esegui", ["WIN", "R"], "monitor"))

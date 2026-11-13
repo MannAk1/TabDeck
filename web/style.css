@@ -737,3 +737,12 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
 #navname,#nav i{display:none}
 #gear.upd::after{top:4px;right:4px;box-shadow:0 0 0 2px var(--amber)}
 #clock{margin-right:16px}
+
+/* iPhone (viewport-fit=cover): fascia finestre fuori da notch e barra di stato */
+@media (max-width:600px){
+ #wband{padding-top:calc(3px + env(safe-area-inset-top))}
+}
+@media (max-height:500px) and (-webkit-min-device-pixel-ratio:2),(max-height:500px) and (min-aspect-ratio:21/10){
+ #wband{right:env(safe-area-inset-right)}
+ .pane{margin-right:calc(56px + env(safe-area-inset-right));padding-right:0}
+}
