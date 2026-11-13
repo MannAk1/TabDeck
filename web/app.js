@@ -1364,7 +1364,7 @@ function loadAudio() {
 setInterval(function () { if (curTab === "mix" && !document.hidden) { loadAudio(); } }, 1500);
 setInterval(function () { if (curTab === "mix" && NP.play) { paintNP(); } }, 1000);
 /* scheda Touchpad: movimenti accumulati e spediti con al massimo una richiesta in volo (si adatta alla rete) */
-var PADQ = {dx: 0, dy: 0, w: 0, hw: 0, b: [], busy: 0}, PAD_SPEED = {slow: 1.3, med: 2.1, fast: 3.2}, PAD_FLIGHT = 3;
+var PADQ = {dx: 0, dy: 0, w: 0, hw: 0, b: [], busy: 0}, PAD_SPEED = {slow: 1.6, med: 2.6, fast: 3.8}, PAD_FLIGHT = 3;
 function padFlush() {
   var q = PADQ;
   if (q.b.length ? q.busy > 0 : q.busy >= PAD_FLIGHT) { return; }   /* un clic parte solo dopo i movimenti prima di lui */
@@ -1422,7 +1422,7 @@ function flGo() {   /* al rilascio: se si scorreva veloce, continua e rallenta (
     if (!n) { return; }
     sx /= n; sy /= n; travel += Math.abs(sx) + Math.abs(sy);
     if (e.targetTouches.length === 1 && maxN === 1) {
-      d = Math.abs(sx) + Math.abs(sy); f = k() * (1 + Math.min(d, 40) / 16);  /* lenti = precisi, veloci = lontano */
+      f = k();   /* niente accelerazione: la stessa strisciata sposta sempre di quanto */
       PADQ.dx += sx * f; PADQ.dy += sy * f;
     } else if (e.targetTouches.length >= 2) {
       PADQ.w += sy * 6; PADQ.hw -= sx * 6;   /* scorrimento "naturale" come sul telefono */

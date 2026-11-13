@@ -2356,7 +2356,24 @@ class MouseSmoother:
                 time.sleep(self.TICK)
 
 
-SMOOTH = MouseSmoother(lambda dx, dy: _send_inputs([_mouse(0x1, dx, dy)]))
+class _PT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+
+def move_cursor(dx, dy):
+    """Sposta il cursore di esattamente dx, dy: niente accelerazione di Windows ("Precisione puntatore avanzata"),
+    il touchpad del tablet resta lineare. Il mouse vero del PC non cambia."""
+    pt = _PT()
+    u = ctypes.windll.user32
+    if u.GetCursorPos(ctypes.byref(pt)):
+        u.SetCursorPos(pt.x + dx, pt.y + dy)
+
+
+def _smooth_send(dx, dy):
+    move_cursor(dx, dy)
+
+
+SMOOTH = MouseSmoother(_smooth_send)
 
 
 def mouse_input(dx=0, dy=0, wheel=0, hwheel=0, buttons=()):
@@ -2374,7 +2391,7 @@ def mouse_input(dx=0, dy=0, wheel=0, hwheel=0, buttons=()):
 def _mouse_now(dx, dy, wheel, hwheel, buttons):
     items = []
     if dx or dy:
-        items.append(_mouse(0x1, dx, dy))                 # MOUSEEVENTF_MOVE
+        move_cursor(dx, dy)
     if wheel:
         items.append(_mouse(0x800, data=wheel))           # MOUSEEVENTF_WHEEL (120 = uno scatto)
     if hwheel:

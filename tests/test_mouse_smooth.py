@@ -38,19 +38,31 @@ class MouseSmootherTest(unittest.TestCase):
         self.assertEqual(s.take(), (0, 0))
 
     def test_clicks_land_after_pending_moves(self):
-        sent = []
-        orig = tabdeck._send_inputs
-        tabdeck._send_inputs = lambda items: sent.append([(i.u.mi.dwFlags, i.u.mi.dx, i.u.mi.dy) for i in items])
+        log = []
+        orig = tabdeck._send_inputs, tabdeck.move_cursor
+        tabdeck._send_inputs = lambda items: log.append(("in", [i.u.mi.dwFlags for i in items]))
+        tabdeck.move_cursor = lambda dx, dy: log.append(("move", dx, dy))
         try:
             tabdeck.SMOOTH.flush()
             tabdeck.SMOOTH.move(80, 0)          # mossa ancora in viaggio verso il cursore
             tabdeck.mouse_input(5, 0, buttons=["lc"])
         finally:
-            tabdeck._send_inputs = orig
-        flags = sent[-1]
-        self.assertEqual(flags[0], (0x1, 85, 0))  # prima tutto il movimento rimasto...
-        self.assertTrue(all(f != 0x1 for f, _, _ in flags[1:]))   # ...poi il clic
+            tabdeck._send_inputs, tabdeck.move_cursor = orig
+        self.assertEqual(log, [("move", 85, 0), ("in", [0x2, 0x4])])   # prima tutto il movimento, poi il clic
         self.assertEqual(tabdeck.SMOOTH.take(), (0, 0))
+
+    def test_moves_bypass_windows_acceleration(self):
+        # il cursore si sposta di esattamente dx, dy (niente "precisione puntatore avanzata" di Windows)
+        log = []
+        orig = tabdeck._send_inputs, tabdeck.move_cursor
+        tabdeck._send_inputs = lambda items: log.append(("in", [i.u.mi.dwFlags for i in items]))
+        tabdeck.move_cursor = lambda dx, dy: log.append(("move", dx, dy))
+        try:
+            tabdeck._mouse_now(7, -3, 0, 0, ["rc"])
+            tabdeck._smooth_send(2, 1)
+        finally:
+            tabdeck._send_inputs, tabdeck.move_cursor = orig
+        self.assertEqual(log, [("move", 7, -3), ("in", [0x8, 0x10]), ("move", 2, 1)])   # mai MOUSEEVENTF_MOVE (0x1)
 
 
 if __name__ == "__main__":
