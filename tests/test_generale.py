@@ -70,6 +70,18 @@ class GeneraleTest(unittest.TestCase):
         self.assertNotIn("sec-wins", secs)
         self.assertNotIn('id="tbar"', secs)
 
+    def test_new_install_defaults_follow_the_curated_layout(self):
+        self.assertEqual(tabdeck.DEFAULT_FAV, ["firefox", "_yt", "discord", "steam", "helldivers2"])
+        self.assertEqual(tabdeck.DEFAULT_ROWS["sistema"], ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer"])
+        self.assertEqual(tabdeck.DEFAULT_ROWS["strumenti"], ["notepad", "calc", "run", "screenshot", "snip", "_mic"])
+        rows = {"avvio": list(tabdeck.DEFAULT_FAV), "sistema": list(tabdeck.DEFAULT_ROWS["sistema"]),
+                "strumenti": list(tabdeck.DEFAULT_ROWS["strumenti"])}
+        self.assertEqual(tabdeck.clean_rows(rows), rows)   # tutti validi, nessuno in due righe
+
+    def test_run_dialog_is_a_builtin_button(self):
+        b = tabdeck.BY_ID["run"]
+        self.assertEqual((b["label"], b["keys"], b["icon"]), ("Esegui", ["WIN", "R"], "monitor"))
+
     def _get(self, path, token=True):
         req = urllib.request.Request(self.base + path, headers={"X-Token": TOKEN} if token else {})
         try:

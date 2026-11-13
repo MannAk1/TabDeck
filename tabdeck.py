@@ -52,7 +52,7 @@ SECTIONS = [("avvio", "Preferiti"), ("sistema", "Sistema"), ("strumenti", "Strum
 # Riga Preferiti, da sinistra a destra (a destra = vicino alla mano). In fondo c'e' sempre "Altre app"
 # con tutti i gruppi (Browser, Launcher, Giochi). Ogni id deve esistere in BUTTONS.
 # "_yt" = riquadro YouTube (tocco = sezione YouTube, scorri su = player sul PC); Spotify resta in "Altre app".
-DEFAULT_FAV = ["opera_gx", "discord", "_yt", "steam", "helldivers2", "explorer"]
+DEFAULT_FAV = ["firefox", "_yt", "discord", "steam", "helldivers2"]
 FAVORITES = list(DEFAULT_FAV)
 GROUPS = [
     {"id": "browser",  "sec": "avvio", "cat": "app",  "icon": "globe", "label": "Browser"},
@@ -81,6 +81,7 @@ BUTTONS = [
     {"id": "task_view",  "sec": "sistema", "cat": "win", "icon": "grid",     "label": "Task View",       "hint": "Win+Tab",     "keys": ["WIN", "TAB"]},
     {"id": "taskmgr",    "sec": "sistema", "cat": "win", "icon": "chart",    "label": "Gestione attivit\u00e0", "hint": "app",  "run": ["taskmgr.exe"]},
     {"id": "lock",       "sec": "sistema", "cat": "win", "icon": "lock",     "label": "Blocca PC",       "hint": "Win+L",       "keys": ["WIN", "L"]},
+    {"id": "run",        "sec": "sistema", "cat": "win", "icon": "monitor",  "label": "Esegui",          "hint": "Win+R",       "keys": ["WIN", "R"]},
 
     {"id": "copy",       "sec": "strumenti", "cat": "edit", "icon": "copy",   "label": "Copia",        "hint": "Ctrl+C", "keys": ["CTRL", "C"]},
     {"id": "paste",      "sec": "strumenti", "cat": "edit", "icon": "paste",  "label": "Incolla",      "hint": "Ctrl+V", "keys": ["CTRL", "V"]},
@@ -472,9 +473,10 @@ LAYOUT_FILE = os.path.join(DATA_DIR, "layout.json")
 FAV_MAX = 10
 ROW_SIDS = ("avvio", "sistema", "strumenti")
 SPECIALS = ("_vol", "_mic", "_yt")
-ROWS = {"avvio": FAVORITES,
-        "sistema": [b["id"] for b in BUTTONS if b.get("sec") == "sistema"] + ["_vol"],
-        "strumenti": [b["id"] for b in BUTTONS if b.get("sec") == "strumenti"] + ["_mic"]}
+# righe di un'installazione nuova (chi ha gia' salvato le sue le tiene): le altre scorciatoie restano in "Aggiungi"
+DEFAULT_ROWS = {"sistema": ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer"],
+                "strumenti": ["notepad", "calc", "run", "screenshot", "snip", "_mic"]}
+ROWS = {"avvio": FAVORITES, "sistema": list(DEFAULT_ROWS["sistema"]), "strumenti": list(DEFAULT_ROWS["strumenti"])}
 CUSTOM_KEYS = []      # scorciatoie create dal tablet: {"id", "label", "keys", "icon"}
 MODS = ["CTRL", "SHIFT", "ALT", "WIN"]
 KEY_CHOICES = ([chr(c) for c in range(ord("A"), ord("Z") + 1)] + [str(d) for d in range(10)] + ["F%d" % n for n in range(1, 13)] +
