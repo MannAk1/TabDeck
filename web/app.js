@@ -220,6 +220,7 @@ function ping() {
     if (ok) {
       try {
         var s = JSON.parse(x.responseText);
+        if (s.rev !== undefined) { cfgSeen(s.rev); }
         if (s.hd) { applyCd(s.hd); }
         if (s.run) { renderRun(s.run); }
         if (s.wins) { renderWins(s.wins); }
@@ -231,6 +232,16 @@ function ping() {
     if (ok !== online) { online = ok; status(ok ? "ok" : "err", ok ? "connesso" : "offline, riprovo..."); }
   };
   try { x.send(); } catch (e) { online = false; }
+}
+/* configurazione cambiata sul PC (es. "Annulla ultima modifica"): Generale e impostazioni si rifanno sul posto */
+var cfgRev = null;
+function cfgSeen(rev) {
+  if (cfgRev === null) { cfgRev = rev; return; }
+  if (rev === cfgRev) { return; }
+  cfgRev = rev;
+  refreshGeneral(function () {
+    if (document.body.classList.contains("setopen") && document.getElementById("sp_fav").classList.contains("show")) { favLoad(); }
+  });
 }
 var pingN = 0;
 ping();
@@ -441,6 +452,8 @@ function bindPop(p) {
 function refreshGeneral(done) {
   dcGet("/general", function (code, j) {
     if (code !== 200 || !j || typeof j.secs !== "string") { location.reload(); return; }   /* ripiego sicuro */
+    if (j.rev !== undefined) { cfgRev = j.rev; }
+    if (j.settings) { SETTINGS = j.settings; paintSettings(); }
     var grid = document.getElementById("grid"), tmp = document.createElement("div"), fresh = [grid], nodes, ref;
     grid.innerHTML = j.secs;
     tmp.innerHTML = j.pops;
@@ -588,8 +601,11 @@ function paintSettings() {
   o.addEventListener("click", function () {
     var k = o.parentNode.getAttribute("data-k"), v = o.getAttribute("data-v"), old = SETTINGS[k];
     SETTINGS[k] = v; paintSettings();
-    post("/settings", k + "=" + encodeURIComponent(v), function (code) {
-      if (code === 200) { status("ok", "Impostazione salvata"); }
+    post("/settings", k + "=" + encodeURIComponent(v), function (code, txt) {
+      if (code === 200) {
+        status("ok", "Impostazione salvata");
+        try { cfgRev = JSON.parse(txt).rev; } catch (e) {}   /* modifica nostra: niente aggiornamento doppio */
+      }
       else { SETTINGS[k] = old; paintSettings(); status("err", code === 0 ? "PC non raggiungibile" : "Errore " + code); }
     });
   }, false);
@@ -700,24 +716,45 @@ function edSelect(i) {
   edPaintBar();
 }
 function edReindex() { [].forEach.call(favrow.children, function (el, i) { el.setAttribute("data-i", i); }); }
+var favNoClick = false;   /* il clic che chiude un trascinamento col mouse non e' una selezione */
 favrow.addEventListener("click", function (e) {
+  if (favNoClick) { favNoClick = false; return; }
   var fi = e.target.closest(".fi"); if (fi && ED) { edSelect(+fi.getAttribute("data-i")); }
 }, false);
 /* trascinare un riquadro della riga lo sposta (le frecce restano). Un tocco senza movimento = selezione, come prima.
    Il dito su un riquadro non fa scorrere le impostazioni: per scorrere si tocca fuori dalla riga. */
 (function () {
-  var d = null;
-  favrow.addEventListener("touchstart", function (e) {
-    var fi = e.target.closest && e.target.closest(".fi"), p = e.touches[0], r;
-    if (d && d.g) { return; }   /* trascinamento in corso: il dito in piu' si ignora */
-    if (!fi || !ED || e.touches.length !== 1) { d = null; return; }
+  var d = null, tT = 0;
+  function start(target, x, y) {
+    var fi = target.closest && target.closest(".fi"), r;
+    if (!fi || !ED) { d = null; return; }
     r = fi.getBoundingClientRect();
-    d = {el: fi, x0: p.clientX, y0: p.clientY, dx: p.clientX - r.left, dy: p.clientY - r.top, w: r.width, h: r.height, g: null};
+    d = {el: fi, x0: x, y0: y, dx: x - r.left, dy: y - r.top, w: r.width, h: r.height, g: null};
+  }
+  favrow.addEventListener("touchstart", function (e) {
+    tT = Date.now();
+    if (d && d.g) { return; }   /* trascinamento in corso: il dito in piu' si ignora */
+    if (e.touches.length !== 1) { d = null; return; }
+    start(e.target, e.touches[0].clientX, e.touches[0].clientY);
   }, false);
   favrow.addEventListener("touchmove", function (e) {
     if (!d) { return; }
     if (e.cancelable) { e.preventDefault(); }
-    var p = e.touches[0], t, o, r;
+    move(e.touches[0]);
+  }, false);
+  favrow.addEventListener("mousedown", function (e) {
+    if (e.button !== 0 || Date.now() - tT < 800 || !(e.target.closest && e.target.closest(".fi"))) { return; }
+    e.preventDefault();   /* niente trascinamento dell'immagine ne' selezione del testo */
+    start(e.target, e.clientX, e.clientY);
+  }, false);
+  document.addEventListener("mousemove", function (e) { if (d) { move(e); } }, false);
+  document.addEventListener("mouseup", function () {
+    if (!d) { return; }
+    if (d.g) { favNoClick = true; setTimeout(function () { favNoClick = false; }, 0); }
+    end(null);
+  }, false);
+  function move(p) {
+    var t, o, r;
     if (!d.g) {
       if (Math.abs(p.clientX - d.x0) < 8 && Math.abs(p.clientY - d.y0) < 8) { return; }
       d.g = d.el.cloneNode(true); d.g.id = "fghost"; d.g.style.width = d.w + "px"; d.g.style.height = d.h + "px";
@@ -729,7 +766,7 @@ favrow.addEventListener("click", function (e) {
     if (!o || o === d.el) { return; }
     r = o.getBoundingClientRect();
     favrow.insertBefore(d.el, p.clientX < r.left + r.width / 2 ? o : o.nextSibling);
-  }, false);
+  }
   function end(e) {
     if (!d) { return; }
     var moved = !!d.g, L, sel;
