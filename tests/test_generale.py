@@ -26,8 +26,9 @@ class GeneraleTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.old = tabdeck.PORT
-        cls.old_file = tabdeck.LAYOUT_FILE
+        cls.old_file, cls.old_hist = tabdeck.LAYOUT_FILE, tabdeck.HISTORY_DIR
         tabdeck.LAYOUT_FILE = os.path.join(tempfile.mkdtemp(), "layout.json")
+        tabdeck.HISTORY_DIR = os.path.join(tempfile.mkdtemp(), "storico")   # mai nello storico vero
         tabdeck.PORT = _free_port()
         cls.srv, _ = tabdeck.start_server("127.0.0.1", TOKEN)
         cls.base = "http://127.0.0.1:%d" % tabdeck.PORT
@@ -36,7 +37,7 @@ class GeneraleTest(unittest.TestCase):
     def tearDownClass(cls):
         tabdeck.stop_server(cls.srv)
         tabdeck.PORT = cls.old
-        tabdeck.LAYOUT_FILE = cls.old_file
+        tabdeck.LAYOUT_FILE, tabdeck.HISTORY_DIR = cls.old_file, cls.old_hist
 
     def setUp(self):
         self.saved = {sid: list(tabdeck.ROWS[sid]) for sid in tabdeck.ROW_SIDS}
@@ -111,7 +112,7 @@ class GeneraleTest(unittest.TestCase):
         st, j = self._get("/general")
         self.assertEqual(st, 200)
         secs, pops = tabdeck.render_general()
-        self.assertEqual(j, {"secs": secs, "pops": pops})
+        self.assertEqual((j["secs"], j["pops"]), (secs, pops))
         tabdeck.ROWS["strumenti"][:] = ["_mic"]
         self.assertEqual(self._get("/general")[1]["secs"], tabdeck.render_general()[0])
 

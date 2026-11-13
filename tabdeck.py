@@ -357,6 +357,7 @@ ICONS = {
 import collections
 import ctypes
 import devices
+import storico
 import youtube
 import difflib
 import hashlib
@@ -636,6 +637,18 @@ def save_layout(rows=None):
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=1)
         os.replace(tmp, LAYOUT_FILE)
+
+
+def reload_layout():
+    """Dopo un "Annulla" dal PC: si riparte dai predefiniti e si rilegge layout.json (app e scorciatoie comprese)."""
+    with LAYOUT_LOCK:
+        for b in [b for b in BUTTONS if b.get("custom") or b.get("customkey")]:
+            _drop_button(b["id"])
+        CUSTOM_KEYS[:] = []
+        FAVORITES[:] = DEFAULT_FAV
+        for sid in ("sistema", "strumenti"):
+            ROWS[sid][:] = DEFAULT_ROWS[sid]
+        apply_layout()
 
 
 apply_layout()
@@ -3125,6 +3138,92 @@ def save_settings(s):
         os.replace(tmp, SETTINGS_FILE)
 
 
+# --- storico delle modifiche (data/storico): una copia di layout.json + settings.json PRIMA di ogni modifica fatta
+# dal tablet; "Annulla ultima modifica" nella finestra sul PC torna indietro di un passo alla volta ---
+HISTORY_DIR = os.path.join(DATA_DIR, "storico")
+CFG_REV = 0               # cresce a ogni modifica o annullamento: la pagina lo vede in /state e si aggiorna da sola
+CFG_LOCK = threading.RLock()
+SETTING_NAMES = {"input": "Inserimento HD2", "remap": "WASD \u2192 frecce", "pos": "Posizione equipaggiamento",
+                 "theme": "Tema", "pad": "Velocit\u00e0 touchpad", "updchk": "Controllo aggiornamenti"}
+SETTING_VALUES = {"input": {"wasd": "Ctrl + WASD", "arrows": "Ctrl + frecce"}, "remap": {"off": "Spento", "on": "Attivo"},
+                  "pos": {"left": "Sinistra", "right": "Destra", "top": "Sopra", "bottom": "Sotto"},
+                  "theme": {"hd": "Helldivers", "notte": "Notte", "discord": "Discord", "term": "Terminale",
+                            "rosso": "Rosso", "oled": "Nero OLED"},
+                  "pad": {"slow": "Lenta", "med": "Normale", "fast": "Veloce"}, "updchk": {"on": "S\u00ec", "off": "No"}}
+
+
+def _read_json(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _write_json(path, obj):
+    """obj None = il file non c'era: lo si toglie (si torna ai predefiniti)."""
+    if obj is None:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        return
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, indent=1)
+    os.replace(tmp, path)
+
+
+def cfg_before():
+    return {"layout": _read_json(LAYOUT_FILE), "settings": _read_json(SETTINGS_FILE)}
+
+
+def cfg_after(before, label):
+    """Se la richiesta ha cambiato qualcosa: copia di prima nello storico e nuova revisione. Mai un errore per chi salva."""
+    global CFG_REV
+    with CFG_LOCK:
+        after = cfg_before()
+        if after == before:
+            return
+        CFG_REV += 1
+        try:
+            storico.save(HISTORY_DIR, label(before, after) if callable(label) else label,
+                         before["layout"], before["settings"])
+        except (OSError, ValueError, TypeError) as e:
+            print("[%s] storico non salvato: %s" % (time.strftime("%H:%M:%S"), e))
+
+
+def settings_label(before, after):
+    defaults = {k: v[0] for k, v in SETTINGS_CHOICES.items()}
+    b, a = dict(defaults, **(before["settings"] or {})), dict(defaults, **(after["settings"] or {}))
+    for k in SETTING_NAMES:
+        if a.get(k) != b.get(k):
+            return "%s \u2192 %s" % (SETTING_NAMES[k], SETTING_VALUES[k].get(a.get(k), a.get(k)))
+    return "Impostazioni"
+
+
+def undo_info():
+    e = storico.latest(HISTORY_DIR)
+    return {"label": e["label"], "t": e["t"]} if e else None
+
+
+def undo_last():
+    """Torna alla copia piu' recente (e la toglie): un passo indietro per ogni pressione. -> etichetta o None."""
+    global CFG_REV
+    with CFG_LOCK:
+        e = storico.pop(HISTORY_DIR)
+        if e is None:
+            return None
+        with SETTINGS_LOCK:
+            _write_json(SETTINGS_FILE, e.get("settings"))
+        with LAYOUT_LOCK:
+            _write_json(LAYOUT_FILE, e.get("layout"))
+        reload_layout()
+        CFG_REV += 1
+    print("[%s] annullato: %s" % (time.strftime("%H:%M:%S"), e["label"].encode("ascii", "replace").decode()))
+    return e["label"]
+
+
 def save_loadout(ids):
     tmp = LOADOUT_FILE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
@@ -3696,7 +3795,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(layout_info()), "application/json")
         if u.path == "/general":   # Generale rifatto dopo "Salva": la pagina lo sostituisce senza ricaricarsi
             secs, pops = render_general()
-            return self._send(200, json.dumps({"secs": secs, "pops": pops}), "application/json")
+            return self._send(200, json.dumps({"secs": secs, "pops": pops, "settings": load_settings(), "rev": CFG_REV}),
+                              "application/json")
         if u.path == "/yts":    # ricerca YouTube dal tablet
             yq = (q.get("q") or [""])[0].strip()
             if not yq or len(yq) > 200:
@@ -3732,6 +3832,7 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 st = {}
             st["hd"] = cd_state()
+            st["rev"] = CFG_REV
             if "g" in q:
                 st["dc"] = DISCORD.state()
                 try:
@@ -3897,6 +3998,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, "ok")
         if u.path == "/layout" and (form.get("a") or [""])[0] in ("key", "delkey"):
             kid = (form.get("id") or [""])[0] or "k_" + secrets.token_hex(4)
+            snap = cfg_before()
             if form["a"][0] == "delkey":
                 with LAYOUT_LOCK:
                     CUSTOM_KEYS[:] = [k for k in CUSTOM_KEYS if k["id"] != kid]
@@ -3904,6 +4006,7 @@ class Handler(BaseHTTPRequestHandler):
                         ROWS[sid][:] = [i for i in ROWS[sid] if i != kid]
                 _drop_button(kid)
                 save_layout()
+                cfg_after(snap, "Scorciatoia eliminata")
                 self.log_message("scorciatoia eliminata: %s", kid)
                 return self._send(200, json.dumps(layout_info()), "application/json")
             spec = {"id": kid, "label": (form.get("label") or [""])[0].strip(),
@@ -3914,11 +4017,13 @@ class Handler(BaseHTTPRequestHandler):
                 CUSTOM_KEYS[:] = [k for k in CUSTOM_KEYS if k["id"] != kid] + [spec]
             _put_button(key_button(spec))
             save_layout()
+            cfg_after(snap, "Scorciatoia \u00ab%s\u00bb salvata" % spec["label"])
             self.log_message("scorciatoia %s: %s = %s", kid, spec["label"], "+".join(spec["keys"]))
             out = layout_info()
             out["new"] = kid
             return self._send(200, json.dumps(out), "application/json")
         if u.path == "/layout":
+            snap = cfg_before()
             want = {}
             for sid in ROW_SIDS:
                 field = (form.get(sid) or form.get("fav" if sid == "avvio" else sid) or [None])[0]
@@ -3940,6 +4045,7 @@ class Handler(BaseHTTPRequestHandler):
                 want[sid] = lst
             rows = clean_rows(want)
             save_layout(rows)
+            cfg_after(snap, "Pulsanti salvati")
             self.log_message("righe: %s", " | ".join(",".join(rows[sid]) for sid in ROW_SIDS))
             return self._send(200, json.dumps(rows), "application/json")
         if u.path == "/winact":
@@ -4057,6 +4163,7 @@ class Handler(BaseHTTPRequestHandler):
             self.log_message("media %s: %s", cmd or "posizione %s" % pos, "ok" if ok else "rifiutato dall'app")
             return self._send(200 if ok else 409, "ok" if ok else "rifiutato")
         if u.path == "/settings":
+            snap = cfg_before()
             s = load_settings()
             for k, choices in SETTINGS_CHOICES.items():
                 v = (form.get(k) or [None])[0]
@@ -4066,8 +4173,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(400, "impostazione non valida")
                 s[k] = v
             save_settings(s)
+            cfg_after(snap, settings_label)
             self.log_message("impostazioni: %s", s)
-            return self._send(200, json.dumps(s), "application/json")
+            return self._send(200, json.dumps(dict(s, rev=CFG_REV)), "application/json")
         button = BY_ID.get((form.get("id") or [""])[0])
         if button is None:
             return self._send(400, "pulsante sconosciuto")
