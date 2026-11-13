@@ -42,7 +42,12 @@
 <div class="lseg" data-l="fs"><div data-v="on">Attivo</div><div data-v="off">Disattivo</div></div></div></div>
 <div class="spn" id="sp_pad"><h3>Touchpad</h3>
 <div class="opt"><div class="ol">Velocit&agrave; touchpad</div>
-<div class="seg" data-k="pad"><div data-v="slow">Lenta</div><div data-v="med">Normale</div><div data-v="fast">Veloce</div></div></div></div>
+<div class="seg" data-k="pad"><div data-v="slow">Lenta</div><div data-v="med">Normale</div><div data-v="fast">Veloce</div></div></div>
+<div class="opt"><div class="ol">Touchpad (su questo dispositivo)</div>
+<div class="lseg" data-l="tpside"><div data-v="right">A destra</div><div data-v="left">A sinistra</div></div>
+<div class="od">&laquo;A sinistra&raquo; rovescia tutto: tasti del mouse all'estrema sinistra, tastiera a destra.</div></div>
+<div class="opt"><div class="ol">Tastiera accanto al touchpad (su questo dispositivo)</div>
+<div class="lseg" data-l="kb"><div data-v="on">Visibile</div><div data-v="off">Nascosta</div></div></div></div>
 <div class="spn" id="sp_dc"><h3>Discord</h3><div class="opt"><div class="ol">Collegamento</div><div id="dcsetst" class="setst"></div></div>
 <div class="fa" data-sa="reauth">Riautorizza</div><div class="fa fx" data-sa="logout">Scollega TabDeck</div>
 <div class="od">&laquo;Scollega&raquo; cancella l'accesso salvato: per riusare la sezione Discord andr&agrave; autorizzato di nuovo.</div></div>
@@ -107,11 +112,12 @@
 <div class="sh" id="ytqh">Coda</div>
 <div id="ytqueue"><div class="dcempty">Coda vuota: tocca + su un risultato</div></div></div></div>
 <div id="pad" class="pane">
-<div id="tpwrap"><div id="tp"><span>1 dito: muovi &middot; tocco: clic<br>2 dita: scorri &middot; tocco a 2 dita: clic destro<br>tieni premuto &laquo;Sinistro&raquo; e muovi per trascinare</span></div>
-<div id="tpb"><div class="tb" data-b="l">Sinistro</div><div class="tb" data-b="m">Centrale</div><div class="tb" data-b="r">Destro</div></div></div>
-<div id="kb"><div class="sh">Tastiera &middot; tocca il campo e scrivi</div>
+<div id="kb"><div class="sh">Tastiera<span id="kbx">Nascondi</span></div>
 <input id="kin" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tocca qui e scrivi sul PC">
-<div id="keys">__PADKEYS__</div></div></div>
+<div id="keys">__PADKEYS__</div></div>
+<div id="kbshow"><span>Tastiera</span></div>
+<div id="tpwrap"><div id="tp"><span>1 dito: muovi &middot; tocco: clic<br>2 dita: scorri &middot; tocco a 2 dita: clic destro<br>tieni premuto &laquo;Sinistro&raquo; e muovi per trascinare</span></div>
+<div id="tpb"><div class="tb" data-b="l">Sinistro</div><div class="tb tw" data-b="m">Rotellina</div><div class="tb" data-b="r">Destro</div></div></div></div>
 <div id="mon" class="pane">
 <div class="mrow">
 <div class="mc kcpu"><div class="mch"><b>CPU</b><span id="m_cn"></span></div><div class="mv mono" id="m_cpu">--</div><canvas id="g_cpu"></canvas><div class="mf2 mono" id="m_cpuf"></div></div>

@@ -58,7 +58,7 @@ if (navigator.getBattery) {
 }
 /* impostazioni di QUESTO dispositivo (non del PC): schermo intero.
    Salvate nel browser; se il browser non le conserva valgono i valori predefiniti. */
-var LOCAL = {fs: "on"}, LOCAL_OK = {fs: ["on", "off"]};
+var LOCAL = {fs: "on", tpside: "right", kb: "on"}, LOCAL_OK = {fs: ["on", "off"], tpside: ["right", "left"], kb: ["on", "off"]};
 (function () {
   for (var k in LOCAL) {
     var v = null;
@@ -66,7 +66,14 @@ var LOCAL = {fs: "on"}, LOCAL_OK = {fs: ["on", "off"]};
     if (v && LOCAL_OK[k].indexOf(v) >= 0) { LOCAL[k] = v; }
   }
 })();
+function setLocal(k, v) {
+  LOCAL[k] = v;
+  try { localStorage.setItem("td_" + k, v); } catch (e) {}
+  paintLocal();
+}
 function paintLocal() {
+  cls(document.body, "tp-left", LOCAL.tpside === "left");
+  cls(document.body, "kb-off", LOCAL.kb === "off");
   [].forEach.call(document.querySelectorAll(".lseg"), function (seg) {
     [].forEach.call(seg.children, function (o) { cls(o, "sel", LOCAL[seg.getAttribute("data-l")] === o.getAttribute("data-v")); });
   });
@@ -74,10 +81,8 @@ function paintLocal() {
 [].forEach.call(document.querySelectorAll(".lseg div"), function (o) {
   o.addEventListener("click", function () {
     var k = o.parentNode.getAttribute("data-l"), v = o.getAttribute("data-v");
-    LOCAL[k] = v;
-    try { localStorage.setItem("td_" + k, v); } catch (e) {}
+    setLocal(k, v);
     if (k === "fs") { if (v === "off") { if (document.fullscreenElement) { document.exitFullscreen(); } } else { goFull(); } }
-    paintLocal();
   }, false);
 });
 paintLocal();
@@ -1416,7 +1421,30 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
   tp.addEventListener("touchend", end, {passive: false});
   tp.addEventListener("touchcancel", end, {passive: false});
   /* pulsanti: giu' al tocco, su al rilascio (cosi' si puo' trascinare) */
-  [].forEach.call(document.getElementsByClassName("tb"), function (el) {
+  (function () {
+    var w = document.querySelector("#tpb .tw"), y = null, moved = 0, wT = 0;
+    w.addEventListener("touchstart", function (e) {
+      if (e.cancelable) { e.preventDefault(); }
+      kBlur(); wT = Date.now(); y = e.touches[0].clientY; moved = 0; cls(w, "on", true);
+    }, {passive: false});
+    w.addEventListener("touchmove", function (e) {
+      if (e.cancelable) { e.preventDefault(); }
+      if (y === null) { return; }
+      var ny = e.touches[0].clientY, dy = ny - y;
+      y = ny; moved += Math.abs(dy);
+      if (moved > 6) { PADQ.w += dy * 6; padFlush(); }
+    }, {passive: false});
+    function wend(e) {
+      if (e.cancelable) { e.preventDefault(); }
+      if (y !== null && moved <= 6) { padBtn("mc"); }
+      y = null; cls(w, "on", false);
+    }
+    w.addEventListener("touchend", wend, {passive: false});
+    w.addEventListener("touchcancel", function () { y = null; cls(w, "on", false); }, false);
+    w.addEventListener("click", function () { if (y === null && Date.now() - wT > 800) { padBtn("mc"); } }, false);   /* col mouse sul PC */
+    w.addEventListener("wheel", function (e) { e.preventDefault(); PADQ.w -= e.deltaY; padFlush(); }, {passive: false});
+  })();
+  [].forEach.call(document.querySelectorAll("#tpb .tb:not(.tw)"), function (el) {
     var b = el.getAttribute("data-b"), down = false;
     function dn(e) { if (e.cancelable) { e.preventDefault(); } kBlur(); if (!down) { down = true; cls(el, "on", true); padBtn(b + "d"); } }
     function up(e) { if (e.cancelable) { e.preventDefault(); } if (down) { down = false; cls(el, "on", false); padBtn(b + "u"); } }
@@ -1428,6 +1456,9 @@ function padBtn(b) { PADQ.b.push(b); padFlush(); }
     el.addEventListener("mouseleave", up, false);
   });
 })();
+/* pannello tastiera: "Nascondi" lo toglie (il touchpad si allarga), la linguetta lo riporta. Ricordato per dispositivo */
+$("kbx").addEventListener("click", function () { kBlur(); setLocal("kb", "off"); }, false);
+$("kbshow").addEventListener("click", function () { setLocal("kb", "on"); }, false);
 /* tastiera: il campo tiene uno spazio "sentinella" all'inizio, cosi' anche la cancellazione a campo vuoto si vede;
    a ogni modifica si spedisce la differenza (backspace + testo nuovo), in ordine, una richiesta alla volta */
 var KQ = [], kBusy = false, kin = $("kin"), kSent = " ";

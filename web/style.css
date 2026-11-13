@@ -266,16 +266,33 @@ img{pointer-events:none;-webkit-user-drag:none}
 #dcum.off{background:var(--err)}
 /* scheda touchpad */
 #pad{padding:8px;gap:10px}
-#tpwrap{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+/* [tastiera] [touchpad] [tasti del mouse]; "A sinistra" (body.tp-left) rovescia. Margini e non gap: Chrome 81 */
+#pad{gap:0}
+#tpwrap{flex:1;min-width:0;min-height:0;display:flex;gap:0;order:3}
+#kb{order:1;margin-right:10px}
+#kbshow{order:2;display:none;flex:0 0 34px;margin-right:10px;align-items:center;justify-content:center;
+ background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);color:var(--amber);font-size:12px;font-weight:bold;letter-spacing:.2em;text-transform:uppercase}
+#kbshow span{writing-mode:vertical-rl;transform:rotate(180deg)}
+body.kb-off #kb{display:none}
+body.kb-off #kbshow{display:flex}
+#kbx{order:2;flex:none;padding:6px 10px;margin:-6px 0;color:var(--dim);font-size:11px;letter-spacing:.12em;box-shadow:inset 0 0 0 1px var(--line)}
+body.tp-left #tpwrap{order:1}
+body.tp-left #kbshow{order:2;margin:0 0 0 10px}
+body.tp-left #kb{order:3;margin:0 0 0 10px}
+body.tp-left #tpb{order:-1;margin:0 8px 0 0}
 #tp{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;touch-action:none;
  background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);
  background-image:linear-gradient(rgba(245,197,24,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(245,197,24,.05) 1px,transparent 1px);background-size:24px 24px}
 #tp span{max-width:80%;font-size:13px;line-height:1.6;color:var(--dim);text-align:center;letter-spacing:.04em;pointer-events:none}
 #tp.on{box-shadow:inset 0 0 0 2px var(--amber2)}
-#tpb{flex:0 0 64px;display:flex;gap:8px}
+#tpb{flex:0 0 76px;display:flex;flex-direction:column;gap:0;margin-left:8px}
+#tpb .tb{flex:1;min-height:0;font-size:12px;letter-spacing:.08em}
+#tpb .tb+.tb{margin-top:8px}
+/* rotellina: righe orizzontali come una rotella vera; strisciare = scorrere, tocco = clic centrale */
+#tpb .tw{flex:1.2;color:var(--dim);background-image:repeating-linear-gradient(0deg,transparent 0,transparent 9px,rgba(245,197,24,.12) 9px,rgba(245,197,24,.12) 10px)}
 .tb{flex:2;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;letter-spacing:.14em;text-transform:uppercase;
  background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line),inset 0 -3px 0 var(--edit);color:var(--text)}
-.tb[data-b="m"]{flex:1}
+.tb[data-b="m"]{flex:1.2}
 .tb.on,.kk.on{background:#3a3f2a}
 #kb{flex:0 0 330px;display:flex;flex-direction:column;gap:8px;min-height:0}
 #kin{flex:0 0 52px;width:100%;padding:0 12px;border:0;outline:none;font-size:18px;font-family:inherit;color:var(--text);
@@ -608,7 +625,12 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  #dcmem{max-height:112px}
  #dcobtn{width:100%}
  /* Touchpad: tastiera sopra, pad in basso (vicino al pollice) */
- #pad{flex-direction:column-reverse}
+ #pad{flex-direction:column}
+ #pad>#kb,#pad>#kbshow,#pad>#tpwrap{order:0;margin:0 0 8px}
+ #pad>#tpwrap{margin:0}
+ #kbshow{flex:0 0 30px}
+ #kbshow span{writing-mode:horizontal-tb;transform:none}
+ #tpb{flex:0 0 68px}
  #tpwrap{flex:1;min-height:0}
  #kb{flex:0 0 auto}
  #keys{grid-auto-rows:46px}
@@ -689,7 +711,7 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  #dcvc{flex:0 0 250px}
  #dcbtn{flex:0 0 52px}
  #dcmic{flex:0 0 36px}
- #tpb{flex:0 0 44px}
+ #tpb{flex:0 0 64px}
  #kb{flex:0 0 250px}
  #kin{flex:0 0 40px}
  .mv{font-size:24px}
