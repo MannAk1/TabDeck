@@ -27,6 +27,8 @@ class TouchpadLayoutTest(unittest.TestCase):
     def test_per_device_touchpad_options(self):
         self.assertIn('class="lseg" data-l="tpside"><div data-v="right">A destra</div><div data-v="left">A sinistra</div>',
                       self.page)
+        self.assertIn('class="lseg" data-l="mb"><div data-v="right">A destra</div><div data-v="left">A sinistra</div>'
+                      '<div data-v="top">Sopra</div><div data-v="bottom">Sotto</div></div>', self.page)
         self.assertIn('class="lseg" data-l="kb"><div data-v="on">Visibile</div><div data-v="off">Nascosta</div>', self.page)
 
 

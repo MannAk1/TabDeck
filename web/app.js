@@ -58,7 +58,8 @@ if (navigator.getBattery) {
 }
 /* impostazioni di QUESTO dispositivo (non del PC): schermo intero.
    Salvate nel browser; se il browser non le conserva valgono i valori predefiniti. */
-var LOCAL = {fs: "on", tpside: "right", kb: "on"}, LOCAL_OK = {fs: ["on", "off"], tpside: ["right", "left"], kb: ["on", "off"]};
+var LOCAL = {fs: "on", tpside: "right", kb: "on", mb: "right"},
+  LOCAL_OK = {fs: ["on", "off"], tpside: ["right", "left"], kb: ["on", "off"], mb: ["right", "left", "top", "bottom"]};
 (function () {
   for (var k in LOCAL) {
     var v = null;
@@ -74,6 +75,7 @@ function setLocal(k, v) {
 function paintLocal() {
   cls(document.body, "tp-left", LOCAL.tpside === "left");
   cls(document.body, "kb-off", LOCAL.kb === "off");
+  ["left", "top", "bottom"].forEach(function (m) { cls(document.body, "mb-" + m, LOCAL.mb === m); });
   [].forEach.call(document.querySelectorAll(".lseg"), function (seg) {
     [].forEach.call(seg.children, function (o) { cls(o, "sel", LOCAL[seg.getAttribute("data-l")] === o.getAttribute("data-v")); });
   });
