@@ -259,7 +259,7 @@ function renderWins(list) {
   var ord = WORDER.map(function (h) { return byH[h]; }), key = JSON.stringify(ord.map(function (w) { return [w.h, w.x, w.i, w.t]; }));
   if (key === winKey || wlist.querySelector(".on, .held")) {   /* stesse finestre: solo le classi (o niente sotto il dito) */
     if (key === winKey) {
-      [].forEach.call(wlist.getElementsByClassName("wt"), function (el) {
+      [].forEach.call(wlist.getElementsByClassName("wbt"), function (el) {
         var w = byH[el.getAttribute("data-hw")]; if (w) { cls(el, "fg", w.fg); cls(el, "mn", w.min); }
       });
     }
@@ -269,11 +269,11 @@ function renderWins(list) {
   wlist.innerHTML = ord.map(function (w) {
     var app = w.x.replace(/\.exe$/i, ""), mono = app.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
     var img = w.i ? '<img src="/appicon/' + w.i + '.png" alt="" onload="this.previousSibling.style.visibility=\'hidden\'" onerror="this.parentNode.removeChild(this)">' : "";
-    return '<button class="b wt' + (w.fg ? " fg" : "") + (w.min ? " mn" : "") + '" data-hw="' + w.h + '" data-n="' + esc(w.t) +
-      '" style="--c:hsl(' + hue(app.toLowerCase()) + ',65%,62%)"><span class="wi"><span>' + esc(mono) + "</span>" + img +
-      '</span><span class="wtt"><b>' + esc(w.t) + "</b><i>" + esc(app) + "</i></span></button>";
+    return '<button class="b wbt' + (w.fg ? " fg" : "") + (w.min ? " mn" : "") + '" data-hw="' + w.h + '" data-n="' + esc(w.t) +
+      '" style="--c:hsl(' + hue(app.toLowerCase()) + ',65%,62%)"><span class="wbi"><span>' + esc(mono) + "</span>" + img +
+      '</span><span class="wbtt"><b>' + esc(w.t) + "</b><i>" + esc(app) + "</i></span></button>";
   }).join("") || '<div class="wbe">&ndash;</div>';
-  [].forEach.call(wlist.getElementsByClassName("wt"), bind);
+  [].forEach.call(wlist.getElementsByClassName("wbt"), bind);
 }
 document.addEventListener("contextmenu", function (e) { e.preventDefault(); }, false);   /* niente menu del tablet tenendo premuto */
 /* maniglia: tocco = allarga/stringe; scorrimento orizzontale sulla fascia = allarga (verso sinistra) o stringe */
