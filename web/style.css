@@ -275,7 +275,8 @@ img{pointer-events:none;-webkit-user-drag:none}
 #kbshow span{writing-mode:vertical-rl;transform:rotate(180deg)}
 body.kb-off #kb{display:none}
 body.kb-off #kbshow{display:flex}
-#kbx{order:2;flex:none;padding:6px 10px;margin:-6px 0;color:var(--dim);font-size:11px;letter-spacing:.12em;box-shadow:inset 0 0 0 1px var(--line)}
+#kbx{order:2;flex:none;padding:11px 18px;margin:-4px 0;color:var(--amber);font-size:13px;letter-spacing:.14em;
+ background:var(--panel2);box-shadow:inset 0 0 0 1px var(--amber2)}
 body.kbp-right #tpwrap,body.kbp-bottom #tpwrap{order:1}
 body.kbp-right #kbshow{order:2;margin:0 0 0 10px}
 body.kbp-right #kb{order:3;margin:0 0 0 10px}
