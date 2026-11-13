@@ -43,9 +43,13 @@
 <div class="spn" id="sp_pad"><h3>Touchpad</h3>
 <div class="opt"><div class="ol">Velocit&agrave; touchpad</div>
 <div class="seg" data-k="pad"><div data-v="slow">Lenta</div><div data-v="med">Normale</div><div data-v="fast">Veloce</div></div></div>
-<div class="opt"><div class="ol">Touchpad (su questo dispositivo)</div>
-<div class="lseg" data-l="tpside"><div data-v="right">A destra</div><div data-v="left">A sinistra</div></div>
-<div class="od">&laquo;A sinistra&raquo;: touchpad a sinistra e tastiera a destra.</div></div>
+<div class="opt"><div class="ol">Tastiera: posizione (su questo dispositivo)</div>
+<div class="lseg" data-l="kbpos"><div data-v="left">A sinistra</div><div data-v="right">A destra</div><div data-v="top">Sopra</div><div data-v="bottom">Sotto</div></div>
+<div class="od">Rispetto al touchpad. La tastiera completa sta meglio sopra o sotto.</div></div>
+<div class="opt"><div class="ol">Tastiera: tipo (su questo dispositivo)</div>
+<div class="lseg" data-l="kbtype"><div data-v="full">Completa</div><div data-v="std">Attuale</div><div data-v="ess">Essenziali</div></div>
+<div class="od">Completa ed Essenziali non hanno il campo di testo: clicca col touchpad dove vuoi scrivere sul PC.
+Ctrl, Alt, Shift e Win restano premuti fino al tasto dopo (Shift due volte = maiuscole fisse; Win due volte = menu Start).</div></div>
 <div class="opt"><div class="ol">Tasti del mouse (su questo dispositivo)</div>
 <div class="lseg" data-l="mb"><div data-v="right">A destra</div><div data-v="left">A sinistra</div><div data-v="top">Sopra</div><div data-v="bottom">Sotto</div></div>
 <div class="od">Rispetto al touchpad. Sulla rotellina si scorre strisciando in su e in gi&ugrave;.</div></div>
@@ -120,7 +124,7 @@
 <div id="pad" class="pane">
 <div id="kb"><div class="sh">Tastiera<span id="kbx">Nascondi</span></div>
 <input id="kin" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tocca qui e scrivi sul PC">
-<div id="keys">__PADKEYS__</div></div>
+<div id="keys">__PADKEYS__</div><div id="fkb"></div></div>
 <div id="kbshow"><span>Tastiera</span></div>
 <div id="tpwrap"><div id="tp"><span>1 dito: muovi &middot; tocco: clic<br>2 dita: scorri &middot; tocco a 2 dita: clic destro<br>tieni premuto &laquo;Sinistro&raquo; e muovi per trascinare</span></div>
 <div id="tpb"><div class="tb" data-b="l">Sinistro</div><div class="tb tw" data-b="m">Rotellina</div><div class="tb" data-b="r">Destro</div></div></div></div>

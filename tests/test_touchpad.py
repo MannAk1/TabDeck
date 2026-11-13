@@ -24,9 +24,15 @@ class TouchpadLayoutTest(unittest.TestCase):
         self.assertIn('id="kbshow"', self.pad)    # linguetta per riaprirlo
         self.assertLess(self.pad.index('id="kb"'), self.pad.index('id="tpwrap"'))   # tastiera a sinistra del touchpad
 
+    def test_full_keyboard_container(self):
+        self.assertIn('<div id="fkb"></div>', self.pad)   # la tastiera completa la disegna la pagina
+
     def test_per_device_touchpad_options(self):
-        self.assertIn('class="lseg" data-l="tpside"><div data-v="right">A destra</div><div data-v="left">A sinistra</div>',
-                      self.page)
+        self.assertNotIn('data-l="tpside"', self.page)    # sostituita da "Tastiera: posizione"
+        self.assertIn('class="lseg" data-l="kbpos"><div data-v="left">A sinistra</div><div data-v="right">A destra</div>'
+                      '<div data-v="top">Sopra</div><div data-v="bottom">Sotto</div></div>', self.page)
+        self.assertIn('class="lseg" data-l="kbtype"><div data-v="full">Completa</div><div data-v="std">Attuale</div>'
+                      '<div data-v="ess">Essenziali</div></div>', self.page)
         self.assertIn('class="lseg" data-l="mb"><div data-v="right">A destra</div><div data-v="left">A sinistra</div>'
                       '<div data-v="top">Sopra</div><div data-v="bottom">Sotto</div></div>', self.page)
         self.assertIn('class="lseg" data-l="fling"><div data-v="on">Attivo</div><div data-v="off">Disattivo</div>', self.page)

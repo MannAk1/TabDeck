@@ -58,14 +58,18 @@ if (navigator.getBattery) {
 }
 /* impostazioni di QUESTO dispositivo (non del PC): schermo intero.
    Salvate nel browser; se il browser non le conserva valgono i valori predefiniti. */
-var LOCAL = {fs: "on", tpside: "right", kb: "on", mb: "right", fling: "on"},
-  LOCAL_OK = {fs: ["on", "off"], tpside: ["right", "left"], kb: ["on", "off"], mb: ["right", "left", "top", "bottom"], fling: ["on", "off"]};
+var LOCAL = {fs: "on", kbpos: "left", kbtype: "std", kb: "on", mb: "right", fling: "on"},
+  LOCAL_OK = {fs: ["on", "off"], kbpos: ["left", "right", "top", "bottom"], kbtype: ["full", "std", "ess"], kb: ["on", "off"],
+              mb: ["right", "left", "top", "bottom"], fling: ["on", "off"]};
 (function () {
   for (var k in LOCAL) {
     var v = null;
     try { v = localStorage.getItem("td_" + k); } catch (e) {}
     if (v && LOCAL_OK[k].indexOf(v) >= 0) { LOCAL[k] = v; }
   }
+  try {   /* vecchia opzione "Touchpad: A sinistra" = tastiera a destra */
+    if (localStorage.getItem("td_tpside") === "left" && !localStorage.getItem("td_kbpos")) { LOCAL.kbpos = "right"; }
+  } catch (e) {}
 })();
 function setLocal(k, v) {
   LOCAL[k] = v;
@@ -73,7 +77,8 @@ function setLocal(k, v) {
   paintLocal();
 }
 function paintLocal() {
-  cls(document.body, "tp-left", LOCAL.tpside === "left");
+  ["left", "right", "top", "bottom"].forEach(function (p) { cls(document.body, "kbp-" + p, LOCAL.kbpos === p); });
+  ["full", "std", "ess"].forEach(function (t) { cls(document.body, "kbt-" + t, LOCAL.kbtype === t); });
   cls(document.body, "kb-off", LOCAL.kb === "off");
   ["left", "top", "bottom"].forEach(function (m) { cls(document.body, "mb-" + m, LOCAL.mb === m); });
   [].forEach.call(document.querySelectorAll(".lseg"), function (seg) {
@@ -1510,7 +1515,7 @@ kin.addEventListener("keydown", function (e) {
   if (e.keyCode === 13) { e.preventDefault(); kPush("/key", "k=ENTER"); kReset(); }
 }, false);
 kin.addEventListener("focus", function () { setTimeout(function () { try { kin.setSelectionRange(kin.value.length, kin.value.length); } catch (e) {} }, 0); }, false);
-[].forEach.call(document.getElementsByClassName("kk"), function (el) {
+function bindTap(el, fn) {
   var live = false;
   var kx = 0, ky = 0;
   el.addEventListener("touchstart", function (e) { live = true; kx = e.touches[0].clientX; ky = e.touches[0].clientY; cls(el, "on", true); }, {passive: true});
@@ -1521,11 +1526,87 @@ kin.addEventListener("focus", function () { setTimeout(function () { try { kin.s
   el.addEventListener("touchend", function (e) {
     if (e.cancelable) { e.preventDefault(); }   /* la tastiera Android resta aperta */
     cls(el, "on", false);
-    if (live && !multiActive) { kPush("/key", "k=" + encodeURIComponent(el.getAttribute("data-k"))); }
+    if (live && !multiActive) { fn(); }
     live = false;
   }, false);
-  el.addEventListener("mousedown", function (e) { e.preventDefault(); kPush("/key", "k=" + encodeURIComponent(el.getAttribute("data-k"))); }, false);
+  el.addEventListener("mousedown", function (e) { e.preventDefault(); fn(); }, false);
+}
+[].forEach.call(document.getElementsByClassName("kk"), function (el) {
+  bindTap(el, function () { kPush("/key", "k=" + encodeURIComponent(el.getAttribute("data-k"))); });
 });
+/* tastiera completa (Impostazioni > Touchpad > Tastiera: tipo). Le lettere e i simboli si scrivono come caratteri
+   (qualsiasi layout del PC); con Ctrl/Alt/Win diventano combinazioni (Ctrl+C). I modificatori valgono per un tasto. */
+var FK = {mods: {}, caps: false, sym: false, shT: 0, els: []};
+var FK_ROWS = [
+  [["k", "ESC", "Esc", 1.3], "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "'", "\u00ec", ["k", "BACKSPACE", "&larr;", 1.6]],
+  [["k", "TAB", "Tab", 1.5], "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "\u00e8", "+"],
+  [["s", "", "?#", 1.5], "a", "s", "d", "f", "g", "h", "j", "k", "l", "\u00f2", "\u00e0", "\u00f9", ["k", "ENTER", "Invio", 1.6]],
+  [["m", "SHIFT", "Shift", 1.8], "z", "x", "c", "v", "b", "n", "m", ",", ".", "-", ["k", "UP", "&#9650;"], ["k", "DELETE", "Canc"]],
+  [["m", "CTRL", "Ctrl", 1.4], ["m", "WIN", "Win", 1.2], ["m", "ALT", "Alt", 1.2], ["k", "SPACE", "Spazio", 6],
+   ["k", "LEFT", "&#9664;"], ["k", "DOWN", "&#9660;"], ["k", "RIGHT", "&#9654;"]]
+];
+var FK_SHIFT = {"1": "!", "2": "\"", "3": "\u00a3", "4": "$", "5": "%", "6": "&", "7": "/", "8": "(", "9": ")", "0": "=", "'": "?",
+  "\u00ec": "^", "\u00e8": "\u00e9", "+": "*", "\u00f2": "\u00e7", "\u00e0": "\u00b0", "\u00f9": "\u00a7", ",": ";", ".": ":", "-": "_"};
+var FK_SYM = {q: "@", w: "#", e: "\u20ac", r: "[", t: "]", y: "{", u: "}", i: "<", o: ">", p: "\\", "\u00e8": "|", "+": "~",
+  a: "`", s: "\u00b4", d: "&", f: "*", g: "_", h: "=", j: "%", k: ";", l: ":", "\u00f2": "!", "\u00e0": "?", "\u00f9": "\"",
+  z: "\u00ab", x: "\u00bb", c: "\u00b0", v: "\u00a7", b: "\u00a3", n: "$", m: "^"};
+function fkChar(c) {
+  var up = !!FK.mods.SHIFT !== (FK.caps && /^[a-z\u00e0-\u00f9]$/.test(c));
+  if (FK.sym && FK_SYM[c]) { return FK_SYM[c]; }
+  if (FK.mods.SHIFT) { return FK_SHIFT[c] || c.toUpperCase(); }
+  return up ? c.toUpperCase() : c;
+}
+function fkMods() { return ["CTRL", "ALT", "SHIFT", "WIN"].filter(function (m) { return FK.mods[m]; }); }
+function fkPaint() {
+  FK.els.forEach(function (it) {
+    var d = it.d;
+    if (typeof d === "string") { it.el.textContent = fkChar(d); return; }
+    if (d[0] === "m") { cls(it.el, "arm", !!FK.mods[d[1]] || (d[1] === "SHIFT" && FK.caps)); }
+    if (d[0] === "s") { cls(it.el, "arm", FK.sym); }
+  });
+}
+function fkPress(d) {
+  var m, now;
+  if (typeof d === "string") {
+    m = fkMods().filter(function (x) { return x !== "SHIFT"; });
+    if (m.length && /^[a-z0-9]$/.test(d)) { kPush("/key", "k=" + fkMods().concat([d.toUpperCase()]).join("+")); }
+    else { kPush("/type", "bs=0&t=" + encodeURIComponent(fkChar(d))); }
+    FK.mods = {};
+  } else if (d[0] === "k") {
+    kPush("/key", "k=" + fkMods().slice(0, 3).concat([d[1]]).join("+"));
+    FK.mods = {};
+  } else if (d[0] === "s") {
+    FK.sym = !FK.sym;
+  } else if (d[1] === "SHIFT") {
+    now = Date.now();
+    if (FK.mods.SHIFT && now - FK.shT < 400) { FK.mods.SHIFT = false; FK.caps = true; }
+    else if (FK.caps) { FK.caps = false; }
+    else { FK.mods.SHIFT = !FK.mods.SHIFT; }
+    FK.shT = now;
+  } else if (d[1] === "WIN" && FK.mods.WIN) {
+    FK.mods = {}; kPush("/key", "k=WIN");   /* Win due volte = menu Start */
+  } else {
+    FK.mods[d[1]] = !FK.mods[d[1]];
+  }
+  fkPaint();
+}
+(function () {
+  var box = $("fkb");
+  FK_ROWS.forEach(function (row) {
+    var r = document.createElement("div");
+    r.className = "fr";
+    row.forEach(function (d) {
+      var el = document.createElement("div");
+      el.className = "fk" + (typeof d === "string" ? "" : " fs");
+      if (typeof d !== "string") { el.innerHTML = d[2]; if (d[3]) { el.style.flex = d[3]; } }
+      bindTap(el, function () { fkPress(d); });
+      FK.els.push({el: el, d: d});
+      r.appendChild(el);
+    });
+    box.appendChild(r);
+  });
+  fkPaint();
+})();
 /* scheda Monitor: valori ogni 1,5 s; lo storico (60 s) arriva alla prima richiesta, poi si accoda in locale */
 var MH = null, monBusy = false, CORES_N = -1;
 function rate(b) {

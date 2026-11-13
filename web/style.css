@@ -266,7 +266,7 @@ img{pointer-events:none;-webkit-user-drag:none}
 #dcum.off{background:var(--err)}
 /* scheda touchpad */
 #pad{padding:8px;gap:10px}
-/* [tastiera] [touchpad] [tasti del mouse]; "A sinistra" (body.tp-left) rovescia. Margini e non gap: Chrome 81 */
+/* [tastiera] [touchpad] [tasti del mouse]; posizione della tastiera con body.kbp-* (left predefinito). Margini e non gap: Chrome 81 */
 #pad{gap:0}
 #tpwrap{flex:1;min-width:0;min-height:0;display:flex;gap:0;order:3}
 #kb{order:1;margin-right:10px}
@@ -276,9 +276,42 @@ img{pointer-events:none;-webkit-user-drag:none}
 body.kb-off #kb{display:none}
 body.kb-off #kbshow{display:flex}
 #kbx{order:2;flex:none;padding:6px 10px;margin:-6px 0;color:var(--dim);font-size:11px;letter-spacing:.12em;box-shadow:inset 0 0 0 1px var(--line)}
-body.tp-left #tpwrap{order:1}
-body.tp-left #kbshow{order:2;margin:0 0 0 10px}
-body.tp-left #kb{order:3;margin:0 0 0 10px}
+body.kbp-right #tpwrap,body.kbp-bottom #tpwrap{order:1}
+body.kbp-right #kbshow{order:2;margin:0 0 0 10px}
+body.kbp-right #kb{order:3;margin:0 0 0 10px}
+body.kbp-top #pad,body.kbp-bottom #pad{flex-direction:column}
+body.kbp-top #kb,body.kbp-bottom #kb{flex:0 0 40%;margin:0 0 8px}
+body.kbp-top #kbshow{flex:0 0 30px;margin:0 0 8px}
+body.kbp-bottom #kbshow{order:2;flex:0 0 30px;margin:8px 0 0}
+body.kbp-bottom #kb{order:3;margin:8px 0 0}
+body.kbp-top #kbshow span,body.kbp-bottom #kbshow span{writing-mode:horizontal-tb;transform:none}
+/* tipo di tastiera (body.kbt-*): completa (#fkb, disegnata dalla pagina), attuale, essenziali */
+#fkb{display:none;flex:1;min-height:0;flex-direction:column}
+body.kbt-full #fkb{display:flex}
+body.kbt-full #kin,body.kbt-full #keys,body.kbt-ess #kin{display:none}
+body.kbt-full.kbp-left #kb,body.kbt-full.kbp-right #kb{flex:0 0 56%}
+body.kbt-full.kbp-top #kb,body.kbt-full.kbp-bottom #kb{flex:0 0 48%}
+.fr{flex:1;min-height:0;display:flex}
+.fr+.fr{margin-top:5px}
+.fk{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;margin-left:5px;font-size:16px;font-weight:bold;
+ background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line),inset 0 -2px 0 var(--line);color:var(--text);overflow:hidden;white-space:nowrap}
+.fk:first-child{margin-left:0}
+.fk.fs{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.fk.on{background:#3a3f2a}
+.fk.arm{box-shadow:inset 0 0 0 2px var(--amber);color:var(--amber)}
+/* essenziali: Esc Tab Bksp Canc / frecce, Invio, Spazio */
+body.kbt-ess #keys{grid-template-rows:repeat(3,1fr);grid-auto-rows:0}
+body.kbt-ess #keys .kk{display:none}
+body.kbt-ess #keys .kk[data-k="ESC"]{display:flex;grid-area:1/1}
+body.kbt-ess #keys .kk[data-k="TAB"]{display:flex;grid-area:1/2}
+body.kbt-ess #keys .kk[data-k="BACKSPACE"]{display:flex;grid-area:1/3}
+body.kbt-ess #keys .kk[data-k="DELETE"]{display:flex;grid-area:1/4}
+body.kbt-ess #keys .kk[data-k="UP"]{display:flex;grid-area:2/2}
+body.kbt-ess #keys .kk[data-k="ENTER"]{display:flex;grid-area:2/4}
+body.kbt-ess #keys .kk[data-k="LEFT"]{display:flex;grid-area:3/1}
+body.kbt-ess #keys .kk[data-k="DOWN"]{display:flex;grid-area:3/2}
+body.kbt-ess #keys .kk[data-k="RIGHT"]{display:flex;grid-area:3/3}
+body.kbt-ess #keys .kk[data-k="SPACE"]{display:flex;grid-area:3/4}
 /* tasti del mouse rispetto al touchpad (body.mb-*): a destra (predefinito), a sinistra, sopra, sotto */
 body.mb-left #tpb{order:-1;margin:0 8px 0 0}
 body.mb-top #tpwrap,body.mb-bottom #tpwrap{flex-direction:column}
@@ -639,6 +672,11 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
  #tpwrap{flex:1;min-height:0}
  #kb{flex:0 0 auto}
  #keys{grid-auto-rows:46px}
+ body.kbp-bottom #pad>#tpwrap{order:1;margin:0 0 8px}
+ body.kbp-bottom #pad>#kbshow{order:2}
+ body.kbp-bottom #pad>#kb{order:3;margin:0}
+ body.kbt-full #fkb{flex:none;height:230px}
+ body.kbt-ess #keys{grid-template-rows:repeat(3,46px)}
  /* Monitor: schede su 2 colonne */
  #mon.show{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch}
  .mrow{flex-wrap:wrap;margin-bottom:8px}
