@@ -137,7 +137,8 @@ function activate(el, alt) {
   if (el.hasAttribute("data-ytv")) { ytView(el.getAttribute("data-ytv")); return; }
   if (el.hasAttribute("data-yts")) { ytPickSug(+el.getAttribute("data-yts")); return; }
   if (!alt && !editMode) { var ra = runOf(el); if (ra) { runTap(el, ra); return; } }
-  if (!alt && el.getAttribute("data-id") === "discord" && !el.closest(".gpop")) { showTab("dc"); return; }   /* anche con Discord chiuso */
+  if (!alt && el.getAttribute("data-id") === "discord" && !el.closest(".gpop")) { showTab("dc"); return; }
+  if (!alt && el.getAttribute("data-id") === "helldivers2" && el.classList.contains("run")) { showTab("hd2"); return; }   /* anche con Discord chiuso */
   if (el.hasAttribute("data-grp")) { openGroup(el.getAttribute("data-grp")); return; }
   if (el.hasAttribute("data-hw")) { focusWin(el); return; }
   if (el.hasAttribute("data-mc")) { mediaCmd(el); return; }
@@ -238,6 +239,7 @@ function ping() {
         if (s.wins) { renderWins(s.wins); }
         if (s.dc) { paintDcTile(s.dc); }
         if (s.mic) { renderMic(s.mic); }
+        if ("cpu" in s) { var mc = document.getElementById("moncpu"); if (mc) { setText(mc, s.cpu === null ? "--" : s.cpu); } }
         if ("vol" in s && !dragging && !inflight && Date.now() - lastSent > 1500) { VOL = {vol: s.vol, mute: s.mute}; paintVol(); }
       } catch (e) {}
     }
@@ -1816,6 +1818,7 @@ function showTab(n) {
   var ps = document.getElementsByClassName("pane"), ts = document.getElementsByClassName("tab"), i;
   for (i = 0; i < ps.length; i++) { cls(ps[i], "show", ps[i].id === n); }
   for (i = 0; i < ts.length; i++) { cls(ts[i], "sel", ts[i].getAttribute("data-tab") === n); }
+  [].forEach.call(document.querySelectorAll(".nsq"), function (q) { cls(q, "cur", q.getAttribute("data-q") === n); });
   document.getElementById("navname").textContent = TAB_NAMES[n];
   try { localStorage.setItem("tabdeck_tab", n); } catch (e) {}
   curTab = n;
@@ -1826,9 +1829,26 @@ function showTab(n) {
   if (n === "mon") { MH = null; loadMon(); }
   if (n === "yt") { ytPoll(); }   /* storico fresco a ogni apertura */
 }
-/* menu sezioni: il pulsante in basso apre l'elenco; ogni riquadro porta alla sua sezione */
+/* quadrati in basso: Home, Audio, Touchpad (un tocco). Tenendo premuto Home: elenco di tutte le sezioni */
 var navPop = document.getElementById("navpop");
-document.getElementById("nav").addEventListener("click", function () { cls(navPop, "show", true); }, false);
+(function () {
+  var home = document.getElementById("nav"), t = null, held = false;
+  function clr() { if (t) { clearTimeout(t); t = null; } }
+  home.addEventListener("touchstart", function () {
+    held = false; clr();
+    t = setTimeout(function () { t = null; held = true; cls(navPop, "show", true); }, 500);
+  }, {passive: true});
+  home.addEventListener("touchmove", clr, {passive: true});
+  home.addEventListener("touchend", clr, false);
+  home.addEventListener("contextmenu", function (e) { e.preventDefault(); held = true; cls(navPop, "show", true); }, false);   /* clic destro sul PC */
+  [].forEach.call(document.querySelectorAll(".nsq"), function (q) {
+    q.addEventListener("click", function () {
+      if (q === home && held) { held = false; return; }
+      showTab(q.getAttribute("data-q"));
+    }, false);
+  });
+  cls(home, "cur", curTab === "grid");
+})();
 [].forEach.call(document.getElementsByClassName("tab"), function (t) {
   t.addEventListener("click", function () { showTab(t.getAttribute("data-tab")); cls(navPop, "show", false); }, false);
 });

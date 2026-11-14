@@ -332,6 +332,7 @@ ICONS = {
     "monitor":  "M3 4h18v12H3z M8 20h8 M12 16v4",
     "windows":  "M3 8h13v11H3z M8 8V4h13v11h-5",
     "grid":     "M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z",
+    "home":     "M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z",
     "lock":     "M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4 M12 15v2",
     "folder":   "M3 6h6l2 2h10v11H3z",
     "note":     "M6 3h12v18H6z M9 8h6 M9 12h6 M9 16h3",
@@ -473,9 +474,9 @@ for _f in FAVORITES:
 LAYOUT_FILE = os.path.join(DATA_DIR, "layout.json")
 FAV_MAX = 10
 ROW_SIDS = ("avvio", "sistema", "strumenti")
-SPECIALS = ("_vol", "_mic", "_yt")
+SPECIALS = ("_vol", "_mic", "_yt", "_mon")
 # righe di un'installazione nuova (chi ha gia' salvato le sue le tiene): le altre scorciatoie restano in "Aggiungi"
-DEFAULT_ROWS = {"sistema": ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer"],
+DEFAULT_ROWS = {"sistema": ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer", "_mon"],
                 "strumenti": ["notepad", "calc", "run", "screenshot", "snip", "_mic"]}
 ROWS = {"avvio": FAVORITES, "sistema": list(DEFAULT_ROWS["sistema"]), "strumenti": list(DEFAULT_ROWS["strumenti"])}
 # righe di chi ha un layout.json di prima che le righe si salvassero (solo "fav"): restano quelle che vedeva allora
@@ -3446,6 +3447,10 @@ def special_html(i, live=True):
         return ('<button class="b win"%s data-go="mix" data-n="Volume">%s<span class="l">Volume</span>'
                 '<span class="h mono"><span%s>--</span>%% &rsaquo;</span></button>'
                 % (' id="svol"' if live else "", svg("vol_up"), ' id="volval"' if live else ""))
+    if i == "_mon":   # porta alla sezione Monitor; la CPU arriva con /state solo se il riquadro e' in Generale
+        return ('<button class="b win"%s data-go="mon" data-n="Monitor">%s<span class="l">Monitor</span>'
+                '<span class="h mono">CPU <span%s>--</span>%% &rsaquo;</span></button>'
+                % (' id="smon"' if live else "", svg("chart"), ' id="moncpu"' if live else ""))
     if i == "_yt":
         return ('<button class="b media"%s data-go="yt" data-yt="1" data-n="YouTube"><span class="mo">YT</span>'
                 '<span class="l">YouTube</span><span class="h mono">musica e video</span></button>' % (' id="syt"' if live else ""))
@@ -3955,6 +3960,8 @@ class Handler(BaseHTTPRequestHandler):
             st["rev"] = CFG_REV
             if "g" in q:
                 st["dc"] = DISCORD.state()
+                if any("_mon" in ROWS[sid] for sid in ROW_SIDS):
+                    st["cpu"] = STATS.get(False).get("cpu")
                 try:
                     st["mic"] = mic_state()
                 except OSError:

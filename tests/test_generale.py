@@ -73,7 +73,7 @@ class GeneraleTest(unittest.TestCase):
 
     def test_new_install_defaults_follow_the_curated_layout(self):
         self.assertEqual(tabdeck.DEFAULT_FAV, ["firefox", "_yt", "discord", "steam", "helldivers2"])
-        self.assertEqual(tabdeck.DEFAULT_ROWS["sistema"], ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer"])
+        self.assertEqual(tabdeck.DEFAULT_ROWS["sistema"], ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer", "_mon"])
         self.assertEqual(tabdeck.DEFAULT_ROWS["strumenti"], ["notepad", "calc", "run", "screenshot", "snip", "_mic"])
         rows = {"avvio": list(tabdeck.DEFAULT_FAV), "sistema": list(tabdeck.DEFAULT_ROWS["sistema"]),
                 "strumenti": list(tabdeck.DEFAULT_ROWS["strumenti"])}
