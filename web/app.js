@@ -1832,7 +1832,7 @@ function showTab(n) {
 /* quadrati in basso: Home, Audio, Touchpad (un tocco).
    Ventaglio delle sezioni: tocco su Home quando si e' gia' in Home, oppure dito su Home e scivola in alto (si lascia sulla sezione) */
 var navPop = document.getElementById("navpop");
-var fan = document.getElementById("fan");
+var fan = document.getElementById("fan"), FANC = {x: 0, y: 0, a: []};   /* centro del ventaglio e angolo di ogni bottone */
 function fanOpen() {
   var home = document.getElementById("nav"), r = home.getBoundingClientRect(), bs = fan.querySelectorAll(".fb");
   var W = window.innerWidth, H = window.innerHeight, R = 160, A0 = 70, A1 = 180, M = 40, pts = [], i, a, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
@@ -1844,15 +1844,19 @@ function fanOpen() {
   }
   if (x0 < M) { cx += M - x0; } else if (x1 > W - M) { cx -= x1 - (W - M); }   /* sempre dentro lo schermo */
   if (y1 > H - M) { cy -= y1 - (H - M); } else if (y0 < M) { cy += M - y0; }
+  FANC = {x: cx, y: cy, a: []};
+  for (i = 0; i < bs.length; i++) { FANC.a.push(A0 + (A1 - A0) * i / Math.max(1, bs.length - 1)); }
   for (i = 0; i < bs.length; i++) { bs[i].style.left = (cx + pts[i][0]) + "px"; bs[i].style.top = (cy + pts[i][1]) + "px"; cls(bs[i], "hot", false); }
   cls(fan, "show", true);
 }
 function fanClose() { cls(fan, "show", false); }
-function fanAt(x, y) {   /* il bottone piu' vicino al dito (entro 48 px dal centro) */
-  var bs = fan.querySelectorAll(".fb"), best = null, bd = 48 * 48, i, b, d;
+function fanAt(x, y) {   /* scivolando conta la direzione, non la precisione: spicchio di torta per ogni bottone */
+  var bs = fan.querySelectorAll(".fb"), dx = x - FANC.x, dy = FANC.y - y, best = null, bd = 40, i, d, a;
+  if (dx * dx + dy * dy < 50 * 50) { return null; }   /* dito ancora vicino a Home: nessuna scelta */
+  a = Math.atan2(dy, dx) * 180 / Math.PI;
+  if (a < -90) { a += 360; }                           /* sotto a sinistra conta come "sinistra" */
   for (i = 0; i < bs.length; i++) {
-    b = bs[i].getBoundingClientRect();
-    d = Math.pow(x - b.left - b.width / 2, 2) + Math.pow(y - b.top - b.height / 2, 2);
+    d = Math.abs(a - FANC.a[i]);
     if (d < bd) { bd = d; best = bs[i]; }
   }
   return best;
