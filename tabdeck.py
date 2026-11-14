@@ -303,6 +303,10 @@ NAV = [
     ("hd2", "Helldivers 2", "Stratagemmi ed equipaggiamento", "target"),
 ]
 
+# Ventaglio di Home: le sezioni principali (Audio e Touchpad hanno gia' il loro quadrato), nomi corti per i bottoni tondi
+FAN_TABS = [t for t, _n, _d, _i in NAV if t not in ("grid", "mix", "pad")]
+FAN_SHORT = {"hd2": "HD2"}
+
 VERSION = "1.5.0"
 # Valori predefiniti (quelli del PC originale); data\config.json, scritto dall'installer, li sostituisce.
 PORT = 8765
@@ -3757,6 +3761,9 @@ def render_page(token, device=""):
             .replace("__NAVTILES__", "".join('<div class="tab nt%s" data-tab="%s">%s<div><b>%s</b><span>%s</span></div></div>'
                                              % (" sel" if i == 0 else "", t, svg(ic), html.escape(n), html.escape(d))
                                              for i, (t, n, d, ic) in enumerate(NAV)))
+            .replace("__FAN__", "".join('<div class="fb" data-tab="%s">%s<b>%s</b></div>' % (t, svg(ic), html.escape(FAN_SHORT.get(t, n)))
+                                        for t, n, _d, ic in NAV if t in FAN_TABS)
+                     + '<div class="fb fall">%s<b>Tutte</b></div>' % svg("grid"))
             .replace("__TABS__", json.dumps([t for t, _n, _d, _i in NAV]))
             .replace("__TABNAMES__", json.dumps({t: n for t, n, _d, _i in NAV}))
             .replace("__HOLD__", str(HOLD_MS))

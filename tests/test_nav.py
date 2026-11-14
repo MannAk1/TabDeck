@@ -30,6 +30,19 @@ class NavBarTest(unittest.TestCase):
         self.assertNotIn("&#9650;", bar)                 # niente piu' freccia del menu
         self.assertIn('id="navpop"', page)               # l'elenco resta: tenendo premuto Home
 
+    def test_radial_fan_lists_main_sections_and_all(self):
+        page = tabdeck.render_page("T" * 24)
+        fan = page[page.index('<div id="fan">'):page.index('<div id="navpop"')]
+        tabs = [t for t, _n, _d, _i in tabdeck.NAV if t not in ("grid", "mix", "pad")]
+        self.assertEqual(tabdeck.FAN_TABS, tabs)        # Audio e Touchpad hanno gia' il loro quadrato
+        pos = [fan.index('data-tab="%s"' % t) for t in tabs]
+        self.assertEqual(pos, sorted(pos))
+        for t in ("grid", "mix", "pad"):
+            self.assertNotIn('data-tab="%s"' % t, fan)
+        self.assertIn('<div class="fb" data-tab="hd2">' + tabdeck.svg("target") + "<b>HD2</b></div>", fan)
+        self.assertIn('class="fb fall"', fan)           # "Tutte" apre l'elenco completo
+        self.assertIn("<b>Tutte</b>", fan)
+
     def test_monitor_tile(self):
         self.assertIn("_mon", tabdeck.SPECIALS)
         live, copy = tabdeck.special_html("_mon"), tabdeck.special_html("_mon", False)
