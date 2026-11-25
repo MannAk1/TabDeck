@@ -69,6 +69,9 @@ Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
   approvati). Con l'approvazione accesa un ID sconosciuto resta "in attesa": la pagina mostra `web/wait.html`
   con un codice di 4 cifre e chiede `/devstate` ogni 2 s; il PC mostra lo stesso codice con Approva / Rifiuta.
   Ogni richiesta con un ID valido lo registra (niente accessi invisibili); senza ID non si crea nulla.
+- Niente doppioni (`DeviceStore._add`): quando un ID nuovo viene approvato (o registrato con l'approvazione
+  spenta, o "Questo PC"), una voce con lo stesso User-Agent e lo stesso IP viene sostituita (cookie perso,
+  riconnessione); il nome dato con Rinomina resta. Un ID nuovo resta comunque "in attesa" se l'approvazione e' accesa.
 - Limiti: una richiesta per IP, codice valido 2 min, Rifiuta blocca IP e ID 10 min, 3 rifiuti in 10 min
   sospendono le richieste per 30 min ("Riprendi" nella finestra). Approvare, cambiare l'interruttore o il token:
   **solo dalla finestra sul PC**, nessuna richiesta di rete puo' farlo.

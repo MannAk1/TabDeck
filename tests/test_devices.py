@@ -172,6 +172,39 @@ class DeviceStoreTest(unittest.TestCase):
         s.access(None, "1.2.3.4", UA_IPHONE)
         self.assertTrue(hits)
 
+    def test_reconnect_with_new_id_replaces_old_entry(self):
+        s = self.store(fresh=False)
+        _, a = s.access(None, "1.2.3.4", UA_TAB)
+        s.rename(a, "Tablet")
+        self.t[0] += 50
+        _, b = s.access(None, "1.2.3.4", UA_TAB)      # cookie perso: nuovo ID, stesso browser e IP
+        self.assertNotEqual(a, b)
+        self.assertEqual([(x["id"], x["name"]) for x in s.approved()], [(b, "Tablet")])
+        self.assertFalse(s.is_approved(a))
+
+    def test_approve_replaces_old_entry_same_browser_ip(self):
+        s = self.on()
+        _, a = s.access(None, "1.2.3.4", UA_IPHONE)
+        s.approve(a)
+        _, b = s.access(None, "1.2.3.4", UA_IPHONE)
+        self.assertEqual(s.access(b, "1.2.3.4", UA_IPHONE)[0], "pending")   # resta da approvare: sicurezza uguale
+        self.assertEqual(len(s.approved()), 1)
+        s.approve(b)
+        self.assertEqual([x["id"] for x in s.approved()], [b])
+
+    def test_admit_reuses_this_pc_entry(self):
+        s = self.on()
+        s.admit(None, "1.2.3.4", UA_WIN, "Questo PC")
+        _, b = s.admit(None, "1.2.3.4", UA_WIN, "Questo PC")
+        self.assertEqual([x["id"] for x in s.approved()], [b])
+
+    def test_different_ip_or_browser_kept(self):
+        s = self.store(fresh=False)
+        s.access(None, "1.2.3.4", UA_TAB)
+        s.access(None, "1.2.3.5", UA_TAB)
+        s.access(None, "1.2.3.4", UA_IPHONE)
+        self.assertEqual(len(s.approved()), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
