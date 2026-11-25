@@ -307,7 +307,7 @@ NAV = [
 FAN_TABS = [t for t, _n, _d, _i in NAV if t not in ("grid", "mix", "pad")]
 FAN_SHORT = {"hd2": "HD2"}
 
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 # Valori predefiniti (quelli del PC originale); data\config.json, scritto dall'installer, li sostituisce.
 PORT = 8765
 # Reti su cui TabDeck accetta di ascoltare (prefisso dell'indirizzo del PC). 172.20.10.x = hotspot dell'iPhone.
