@@ -1832,7 +1832,7 @@ function showTab(n) {
 /* quadrati in basso: Home, Audio, Touchpad (un tocco).
    Ventaglio delle sezioni: tocco su Home quando si e' gia' in Home, oppure dito su Home e scivola in alto (si lascia sulla sezione) */
 var navPop = document.getElementById("navpop");
-var fan = document.getElementById("fan"), FANC = {x: 0, y: 0, a: []};   /* centro del ventaglio e angolo di ogni bottone */
+var fan = document.getElementById("fan"), FANC = {x: 0, y: 0, p: []}, fanHot = null;   /* centro del ventaglio e angolo di ogni bottone */
 function fanOpen() {
   var home = document.getElementById("nav"), r = home.getBoundingClientRect(), bs = fan.querySelectorAll(".fb");
   var W = window.innerWidth, H = window.innerHeight, R = 160, A0 = 70, A1 = 180, M = 40, pts = [], i, a, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
@@ -1844,21 +1844,31 @@ function fanOpen() {
   }
   if (x0 < M) { cx += M - x0; } else if (x1 > W - M) { cx -= x1 - (W - M); }   /* sempre dentro lo schermo */
   if (y1 > H - M) { cy -= y1 - (H - M); } else if (y0 < M) { cy += M - y0; }
-  FANC = {x: cx, y: cy, a: []};
-  for (i = 0; i < bs.length; i++) { FANC.a.push(A0 + (A1 - A0) * i / Math.max(1, bs.length - 1)); }
-  for (i = 0; i < bs.length; i++) { bs[i].style.left = (cx + pts[i][0]) + "px"; bs[i].style.top = (cy + pts[i][1]) + "px"; cls(bs[i], "hot", false); }
+  FANC = {x: cx, y: cy, p: []}; fanHot = null;
+  for (i = 0; i < bs.length; i++) {
+    FANC.p.push([cx + pts[i][0], cy + pts[i][1]]);
+    bs[i].style.left = FANC.p[i][0] + "px"; bs[i].style.top = FANC.p[i][1] + "px"; cls(bs[i], "hot", false);
+  }
   cls(fan, "show", true);
 }
 function fanClose() { cls(fan, "show", false); }
-function fanAt(x, y) {   /* scivolando conta la direzione, non la precisione: spicchio di torta per ogni bottone */
-  var bs = fan.querySelectorAll(".fb"), dx = x - FANC.x, dy = FANC.y - y, best = null, bd = 40, i, d, a;
-  if (dx * dx + dy * dy < 50 * 50) { return null; }   /* dito ancora vicino a Home: nessuna scelta */
-  a = Math.atan2(dy, dx) * 180 / Math.PI;
-  if (a < -90) { a += 360; }                           /* sotto a sinistra conta come "sinistra" */
-  for (i = 0; i < bs.length; i++) {
-    d = Math.abs(a - FANC.a[i]);
-    if (d < bd) { bd = d; best = bs[i]; }
+function fanAt(x, y, ox, oy) {   /* scivolando conta la direzione, non la precisione */
+  var bs = fan.querySelectorAll(".fb"), best = null, bd = 40, hd = 1e9, i, d, a, dx, dy;
+  if (ox == null) { ox = FANC.x; oy = FANC.y; }
+  for (i = 0; i < bs.length; i++) {                    /* dito sopra un bottone: e' quello */
+    dx = x - FANC.p[i][0]; dy = y - FANC.p[i][1];
+    if (dx * dx + dy * dy < 38 * 38) { return bs[i]; }
   }
+  dx = x - ox; dy = oy - y;
+  if (dx * dx + dy * dy < 45 * 45) { return null; }   /* dito ancora vicino a Home: nessuna scelta */
+  a = Math.atan2(dy, dx);
+  for (i = 0; i < bs.length; i++) {                    /* direzione dal punto dove il dito e' partito verso ogni bottone */
+    d = Math.atan2(oy - FANC.p[i][1], FANC.p[i][0] - ox) - a;
+    d = Math.abs(Math.atan2(Math.sin(d), Math.cos(d))) * 180 / Math.PI;
+    if (d < bd) { bd = d; best = bs[i]; }
+    if (bs[i] === fanHot) { hd = d; }
+  }
+  if (fanHot && best !== fanHot && hd < bd + 8) { return fanHot; }   /* tolleranza: il tocco che trema non fa saltare la scelta */
   return best;
 }
 function fanPick(b) {
@@ -1870,23 +1880,23 @@ fan.addEventListener("click", function (e) {
   if (b) { fanPick(b); } else { fanClose(); }
 }, false);
 (function () {
-  var home = document.getElementById("nav"), t = null, y0 = 0, slid = false, skip = false;
+  var home = document.getElementById("nav"), t = null, x0 = 0, y0 = 0, slid = false, skip = false;
   function clr() { if (t) { clearTimeout(t); t = null; } }
-  function hot(b) { [].forEach.call(fan.querySelectorAll(".fb"), function (x) { cls(x, "hot", x === b); }); }
+  function hot(b) { fanHot = b; [].forEach.call(fan.querySelectorAll(".fb"), function (x) { cls(x, "hot", x === b); }); }
   home.addEventListener("touchstart", function (e) {
-    y0 = e.touches[0].clientY; slid = false; skip = false; clr();
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; slid = false; skip = false; clr();
     t = setTimeout(function () { t = null; slid = true; fanOpen(); }, 450);   /* tenere premuto funziona ancora */
   }, {passive: true});
   home.addEventListener("touchmove", function (e) {
     var p = e.touches[0];
     if (!slid && y0 - p.clientY > 18) { clr(); slid = true; fanOpen(); }
-    if (slid) { e.preventDefault(); hot(fanAt(p.clientX, p.clientY)); }
+    if (slid) { e.preventDefault(); hot(fanAt(p.clientX, p.clientY, x0, y0)); }
   }, {passive: false});
   home.addEventListener("touchend", function (e) {
     clr();
     if (!slid) { return; }
     skip = true; e.preventDefault();      /* niente clic dopo lo scivolamento */
-    var p = e.changedTouches[0], b = fanAt(p.clientX, p.clientY);
+    var p = e.changedTouches[0], b = fanAt(p.clientX, p.clientY, x0, y0);
     if (b) { fanPick(b); } else { hot(null); }   /* lasciato nel vuoto: il ventaglio resta aperto per un tocco */
   }, false);
   home.addEventListener("contextmenu", function (e) { e.preventDefault(); skip = true; fanOpen(); }, false);   /* clic destro sul PC */
