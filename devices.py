@@ -97,6 +97,17 @@ class DeviceStore:
             if self._last_dirty and (force or self.now() - self._wrote >= LAST_FLUSH):
                 self._save()
 
+    def _add(self, dev_id, name, ua, ip, t):
+        """Registra un dispositivo approvato. Se lo stesso browser (stesso User-Agent) dallo stesso IP era gia'
+        nell'elenco con un altro ID (cookie perso, app iOS, riconnessione), la voce vecchia viene sostituita:
+        niente doppioni, e il nome dato con Rinomina resta."""
+        ua = (ua or "")[:200]
+        for old in [i for i, d in self._dev.items() if i != dev_id and d.get("ua") == ua and d.get("ip") == ip]:
+            d = self._dev.pop(old)
+            if d.get("name") and d.get("name") != ua_name(ua):
+                name = d["name"]
+        self._dev[dev_id] = {"name": name, "ua": ua, "ip": ip, "added": t, "last": t}
+
     # --- decisione ---
     def _purge(self, t):
         for ip in [ip for ip, p in self._pend.items() if t - p["t"] > PENDING_TTL]:
@@ -119,7 +130,7 @@ class DeviceStore:
                 self._last_dirty = True
                 return "ok", dev_id
             if not self.require:
-                self._dev[dev_id] = {"name": ua_name(ua), "ua": (ua or "")[:200], "ip": ip, "added": t, "last": t}
+                self._add(dev_id, ua_name(ua), ua, ip, t)
                 self._changed()
                 return "ok", dev_id
             self._purge(t)
@@ -150,7 +161,7 @@ class DeviceStore:
                 return False
             del self._pend[ip]
             t = self.now()
-            self._dev[dev_id] = {"name": p["name"], "ua": p["ua"], "ip": ip, "added": t, "last": t}
+            self._add(dev_id, p["name"], p["ua"], ip, t)
             self._changed()
             return True
 
@@ -162,7 +173,7 @@ class DeviceStore:
             for pip in [p for p, x in self._pend.items() if x["id"] == dev_id]:
                 del self._pend[pip]
             t = self.now()
-            self._dev[dev_id] = {"name": name, "ua": (ua or "")[:200], "ip": ip, "added": t, "last": t}
+            self._add(dev_id, name, ua, ip, t)
             self._changed()
             return "ok", dev_id
 

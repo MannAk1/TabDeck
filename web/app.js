@@ -137,7 +137,8 @@ function activate(el, alt) {
   if (el.hasAttribute("data-ytv")) { ytView(el.getAttribute("data-ytv")); return; }
   if (el.hasAttribute("data-yts")) { ytPickSug(+el.getAttribute("data-yts")); return; }
   if (!alt && !editMode) { var ra = runOf(el); if (ra) { runTap(el, ra); return; } }
-  if (!alt && el.getAttribute("data-id") === "discord" && !el.closest(".gpop")) { showTab("dc"); return; }   /* anche con Discord chiuso */
+  if (!alt && el.getAttribute("data-id") === "discord" && !el.closest(".gpop")) { showTab("dc"); return; }
+  if (!alt && el.getAttribute("data-id") === "helldivers2" && el.classList.contains("run")) { showTab("hd2"); return; }   /* anche con Discord chiuso */
   if (el.hasAttribute("data-grp")) { openGroup(el.getAttribute("data-grp")); return; }
   if (el.hasAttribute("data-hw")) { focusWin(el); return; }
   if (el.hasAttribute("data-mc")) { mediaCmd(el); return; }
@@ -238,6 +239,7 @@ function ping() {
         if (s.wins) { renderWins(s.wins); }
         if (s.dc) { paintDcTile(s.dc); }
         if (s.mic) { renderMic(s.mic); }
+        if ("cpu" in s) { var mc = document.getElementById("moncpu"); if (mc) { setText(mc, s.cpu === null ? "--" : s.cpu); } }
         if ("vol" in s && !dragging && !inflight && Date.now() - lastSent > 1500) { VOL = {vol: s.vol, mute: s.mute}; paintVol(); }
       } catch (e) {}
     }
@@ -1816,6 +1818,7 @@ function showTab(n) {
   var ps = document.getElementsByClassName("pane"), ts = document.getElementsByClassName("tab"), i;
   for (i = 0; i < ps.length; i++) { cls(ps[i], "show", ps[i].id === n); }
   for (i = 0; i < ts.length; i++) { cls(ts[i], "sel", ts[i].getAttribute("data-tab") === n); }
+  [].forEach.call(document.querySelectorAll(".nsq"), function (q) { cls(q, "cur", q.getAttribute("data-q") === n); });
   document.getElementById("navname").textContent = TAB_NAMES[n];
   try { localStorage.setItem("tabdeck_tab", n); } catch (e) {}
   curTab = n;
@@ -1826,9 +1829,89 @@ function showTab(n) {
   if (n === "mon") { MH = null; loadMon(); }
   if (n === "yt") { ytPoll(); }   /* storico fresco a ogni apertura */
 }
-/* menu sezioni: il pulsante in basso apre l'elenco; ogni riquadro porta alla sua sezione */
+/* quadrati in basso: Home, Audio, Touchpad (un tocco).
+   Ventaglio delle sezioni: tocco su Home quando si e' gia' in Home, oppure dito su Home e scivola in alto (si lascia sulla sezione) */
 var navPop = document.getElementById("navpop");
-document.getElementById("nav").addEventListener("click", function () { cls(navPop, "show", true); }, false);
+var fan = document.getElementById("fan"), FANC = {x: 0, y: 0, p: []}, fanHot = null;   /* centro del ventaglio e angolo di ogni bottone */
+function fanOpen() {
+  var home = document.getElementById("nav"), r = home.getBoundingClientRect(), bs = fan.querySelectorAll(".fb");
+  var W = window.innerWidth, H = window.innerHeight, R = 160, A0 = 70, A1 = 180, M = 40, pts = [], i, a, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  for (i = 0; i < bs.length; i++) {   /* da in alto a destra verso sinistra, ~110 gradi */
+    a = (A0 + (A1 - A0) * i / Math.max(1, bs.length - 1)) * Math.PI / 180;
+    pts.push([Math.cos(a) * R, -Math.sin(a) * R]);
+    x0 = Math.min(x0, cx + pts[i][0]); x1 = Math.max(x1, cx + pts[i][0]); y0 = Math.min(y0, cy + pts[i][1]); y1 = Math.max(y1, cy + pts[i][1]);
+  }
+  if (x0 < M) { cx += M - x0; } else if (x1 > W - M) { cx -= x1 - (W - M); }   /* sempre dentro lo schermo */
+  if (y1 > H - M) { cy -= y1 - (H - M); } else if (y0 < M) { cy += M - y0; }
+  FANC = {x: cx, y: cy, p: []}; fanHot = null;
+  for (i = 0; i < bs.length; i++) {
+    FANC.p.push([cx + pts[i][0], cy + pts[i][1]]);
+    bs[i].style.left = FANC.p[i][0] + "px"; bs[i].style.top = FANC.p[i][1] + "px"; cls(bs[i], "hot", false);
+  }
+  cls(fan, "show", true);
+}
+function fanClose() { cls(fan, "show", false); }
+function fanAt(x, y, ox, oy) {   /* scivolando conta la direzione, non la precisione */
+  var bs = fan.querySelectorAll(".fb"), best = null, bd = 40, hd = 1e9, i, d, a, dx, dy;
+  if (ox == null) { ox = FANC.x; oy = FANC.y; }
+  for (i = 0; i < bs.length; i++) {                    /* dito sopra un bottone: e' quello */
+    dx = x - FANC.p[i][0]; dy = y - FANC.p[i][1];
+    if (dx * dx + dy * dy < 38 * 38) { return bs[i]; }
+  }
+  dx = x - ox; dy = oy - y;
+  if (dx * dx + dy * dy < 45 * 45) { return null; }   /* dito ancora vicino a Home: nessuna scelta */
+  a = Math.atan2(dy, dx);
+  for (i = 0; i < bs.length; i++) {                    /* direzione dal punto dove il dito e' partito verso ogni bottone */
+    d = Math.atan2(oy - FANC.p[i][1], FANC.p[i][0] - ox) - a;
+    d = Math.abs(Math.atan2(Math.sin(d), Math.cos(d))) * 180 / Math.PI;
+    if (d < bd) { bd = d; best = bs[i]; }
+    if (bs[i] === fanHot) { hd = d; }
+  }
+  if (fanHot && best !== fanHot && hd < bd + 8) { return fanHot; }   /* tolleranza: il tocco che trema non fa saltare la scelta */
+  return best;
+}
+function fanPick(b) {
+  fanClose();
+  if (b.classList.contains("fall")) { cls(navPop, "show", true); } else { showTab(b.getAttribute("data-tab")); }
+}
+fan.addEventListener("click", function (e) {
+  var b = e.target.closest(".fb");
+  if (b) { fanPick(b); } else { fanClose(); }
+}, false);
+(function () {
+  var home = document.getElementById("nav"), t = null, x0 = 0, y0 = 0, slid = false, skip = false;
+  function clr() { if (t) { clearTimeout(t); t = null; } }
+  function hot(b) { fanHot = b; [].forEach.call(fan.querySelectorAll(".fb"), function (x) { cls(x, "hot", x === b); }); }
+  home.addEventListener("touchstart", function (e) {
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; slid = false; skip = false; clr();
+    t = setTimeout(function () { t = null; slid = true; fanOpen(); }, 450);   /* tenere premuto funziona ancora */
+  }, {passive: true});
+  home.addEventListener("touchmove", function (e) {
+    var p = e.touches[0];
+    if (!slid && y0 - p.clientY > 18) { clr(); slid = true; fanOpen(); }
+    if (slid) { e.preventDefault(); hot(fanAt(p.clientX, p.clientY, x0, y0)); }
+  }, {passive: false});
+  home.addEventListener("touchend", function (e) {
+    clr();
+    if (!slid) { return; }
+    skip = true; e.preventDefault();      /* niente clic dopo lo scivolamento */
+    var p = e.changedTouches[0], b = fanAt(p.clientX, p.clientY, x0, y0);
+    if (b) { fanPick(b); } else { hot(null); }   /* lasciato nel vuoto: il ventaglio resta aperto per un tocco */
+  }, false);
+  home.addEventListener("contextmenu", function (e) { e.preventDefault(); skip = true; fanOpen(); }, false);   /* clic destro sul PC */
+  [].forEach.call(document.querySelectorAll(".nsq"), function (q) {
+    q.addEventListener("click", function () {
+      if (q === home) {
+        if (skip) { skip = false; return; }
+        if (curTab === "grid") { fanOpen(); return; }   /* gia' in Home: il tocco apre il ventaglio */
+      }
+      fanClose();
+      showTab(q.getAttribute("data-q"));
+    }, false);
+  });
+  cls(home, "cur", curTab === "grid");
+})();
 [].forEach.call(document.getElementsByClassName("tab"), function (t) {
   t.addEventListener("click", function () { showTab(t.getAttribute("data-tab")); cls(navPop, "show", false); }, false);
 });

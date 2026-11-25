@@ -24,7 +24,7 @@ NIIF_INFO = 0x1
 IMAGE_ICON, LR_LOADFROMFILE, LR_DEFAULTSIZE = 1, 0x10, 0x40
 MF_STRING, MF_SEPARATOR = 0x0, 0x800
 TPM_RIGHTBUTTON, TPM_RETURNCMD, TPM_NONOTIFY = 0x2, 0x100, 0x80
-ID_OPEN, ID_RESTART, ID_QUIT = 1, 2, 3
+ID_OPEN, ID_RESTART, ID_QUIT, ID_TABLET = 1, 2, 3, 4
 
 
 class WNDCLASSW(ctypes.Structure):
@@ -73,9 +73,9 @@ _sh.Shell_NotifyIconW.restype = W.BOOL
 class Tray:
     _n = 0
 
-    def __init__(self, icon_path, tooltip, on_open, on_restart, on_quit):
+    def __init__(self, icon_path, tooltip, on_open, on_restart, on_quit, on_tablet=None):
         self.icon_path, self.tooltip = icon_path, tooltip[:127]
-        self.on_open, self.on_restart, self.on_quit = on_open, on_restart, on_quit
+        self.on_open, self.on_restart, self.on_quit, self.on_tablet = on_open, on_restart, on_quit, on_tablet
         self.hwnd = None
         self.added = False
         self.ready = threading.Event()
@@ -128,6 +128,8 @@ class Tray:
     def _menu(self):
         m = _u32.CreatePopupMenu()
         _u32.AppendMenuW(m, MF_STRING, ID_OPEN, "Apri TabDeck")
+        if self.on_tablet:
+            _u32.AppendMenuW(m, MF_STRING, ID_TABLET, "Apri sul tablet")
         _u32.AppendMenuW(m, MF_STRING, ID_RESTART, "Riavvia")
         _u32.AppendMenuW(m, MF_SEPARATOR, 0, None)
         _u32.AppendMenuW(m, MF_STRING, ID_QUIT, "Esci")
@@ -153,7 +155,8 @@ class Tray:
             elif ev in (WM_RBUTTONUP, WM_CONTEXTMENU):
                 cmd = self._menu()
                 if cmd:
-                    self._call({ID_OPEN: self.on_open, ID_RESTART: self.on_restart, ID_QUIT: self.on_quit}[cmd])
+                    self._call({ID_OPEN: self.on_open, ID_RESTART: self.on_restart, ID_QUIT: self.on_quit,
+                                ID_TABLET: self.on_tablet}[cmd])
             return 0
         if msg == WM_NOTIFY_REQ:
             n = self._nid(NIF_INFO)

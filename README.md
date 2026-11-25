@@ -41,7 +41,9 @@ Doppio clic sull'icona **TabDeck** (Desktop o menu Start): si apre la finestra d
 averlo sempre a portata, nel browser che si è aperto: menu ⋮ (o Condividi su iPhone) → **Aggiungi a schermata Home**.
 
 Sul telefono: le **finestre aperte** del PC sono nella fascia a destra (tocco = la porta davanti; la freccia in alto
-mostra i titoli). In basso a destra: ⚙ impostazioni e il quadrato delle sezioni. I pulsanti di Generale si
+mostra i titoli). In basso a destra: **Home**, **Audio**, **Touchpad** e ⚙ impostazioni. Per le altre sezioni
+(YouTube, Discord, Monitor, Helldivers 2, Tutte) tocca Home quando sei già in Home, oppure appoggia il dito su Home
+e fai scivolare verso la sezione: si apre un menu a ventaglio. I pulsanti di Generale si
 scelgono e si riordinano (trascinandoli) da ⚙ → **Pulsanti**; lo schermo intero si toglie da ⚙ → **Aspetto**.
 Nella sezione **Touchpad** i tasti del mouse stanno accanto al touchpad (sulla **Rotellina** si scorre strisciando) e
 la tastiera si può nascondere; da ⚙ → **Touchpad** si scelgono, per ogni dispositivo, la posizione dei tasti del mouse
@@ -50,10 +52,11 @@ e della tastiera e il tipo di tastiera (completa, quella attuale col campo di te
 **Annullare una modifica**: nella finestra sul PC, **Annulla ultima modifica** riporta pulsanti, scorciatoie e
 impostazioni a com'erano prima dell'ultimo cambio (un passo alla volta; si tengono gli ultimi 30). Funziona anche
 se la pagina sul telefono non si apre. **Apri TabDeck sul PC** apre la pagina completa nel browser del PC, da usare
-col mouse.
+col mouse. **Apri sul tablet** riapre TabDeck sul tablet collegato con il cavo USB (se l'hai chiuso per sbaglio).
+Sul tablet o sul telefono puoi anche aggiungere un'icona: Chrome, menu > **Aggiungi a schermata Home**.
 
 Chiudendo la finestra TabDeck resta attivo: la sua icona è vicino all'orologio (clic = riapri, clic destro =
-Riavvia / Esci). All'accensione del PC parte già nascosto, solo con l'icona.
+Apri sul tablet / Riavvia / Esci). All'accensione del PC parte già nascosto, solo con l'icona.
 
 **Approvazione dei dispositivi**: con l'opzione "Richiedi approvazione per i nuovi dispositivi" (accesa sulle
 installazioni nuove) un telefono nuovo mostra un codice di 4 cifre e la finestra sul PC lo stesso codice:

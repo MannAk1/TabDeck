@@ -50,7 +50,8 @@ Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
    thread non toccano Tk (coda svuotata con `after`). X = nascondi nell'area di notifica; Esci (`quit_tabdeck`)
    ferma server e icona, salva i dispositivi e termina (dopo 3 s comunque).
    La finestra ha anche **Annulla ultima modifica** (`undo_last`, vedi sotto) e **Apri TabDeck sul PC**
-   (apre `pair_url() + "&pc=1"` nel browser).
+   (apre `pair_url() + "&pc=1"` nel browser) e **Apri sul tablet** (anche nel menu dell'icona: `_App.open_tablet`,
+   riapre `pair_url()` via adb su ogni tablet in `STATUS["adb"]`, in un thread; messaggi `gui.TABLET_MSG`).
 
 ### Storico delle modifiche (`storico.py`, `data/storico/`)
 - Prima di ogni modifica fatta da una richiesta (`POST /layout` righe e scorciatoie, `POST /settings`) si legge
@@ -69,6 +70,9 @@ Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
   approvati). Con l'approvazione accesa un ID sconosciuto resta "in attesa": la pagina mostra `web/wait.html`
   con un codice di 4 cifre e chiede `/devstate` ogni 2 s; il PC mostra lo stesso codice con Approva / Rifiuta.
   Ogni richiesta con un ID valido lo registra (niente accessi invisibili); senza ID non si crea nulla.
+- Niente doppioni (`DeviceStore._add`): quando un ID nuovo viene approvato (o registrato con l'approvazione
+  spenta, o "Questo PC"), una voce con lo stesso User-Agent e lo stesso IP viene sostituita (cookie perso,
+  riconnessione); il nome dato con Rinomina resta. Un ID nuovo resta comunque "in attesa" se l'approvazione e' accesa.
 - Limiti: una richiesta per IP, codice valido 2 min, Rifiuta blocca IP e ID 10 min, 3 rifiuti in 10 min
   sospendono le richieste per 30 min ("Riprendi" nella finestra). Approvare, cambiare l'interruttore o il token:
   **solo dalla finestra sul PC**, nessuna richiesta di rete puo' farlo.

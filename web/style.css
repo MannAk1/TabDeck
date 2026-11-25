@@ -796,11 +796,28 @@ body.setopen .pane,body.setopen #bar{visibility:hidden}
 
 /* barra in basso: impostazioni e sezioni = due quadrati gialli fissi in fondo a destra, sotto la fascia finestre.
    Alti quanto la barra (diversa su telefono); niente nome della sezione: la larghezza non cambia mai. */
-#nav,#gear{align-self:stretch;flex:0 0 54px;width:54px;height:auto;padding:0;justify-content:center;border:0;
- background:var(--amber);color:#141100;clip-path:none}
-#nav{order:99;margin-right:-10px;gap:0}
-#gear{order:98;margin-right:2px}
-#nav svg,#gear svg{width:24px;height:24px;stroke-linejoin:round}
+/* Home, Audio, Touchpad, impostazioni: quattro quadrati gialli uguali; quello della sezione aperta e' rovesciato */
+.nsq,#nav.nsq,#gear{align-self:stretch;flex:0 0 54px;width:54px;height:auto;padding:0;display:flex;align-items:center;justify-content:center;border:0;
+ background:var(--amber);color:#141100;clip-path:none;margin-right:2px}
+#nav{order:95;gap:0}
+.nsq[data-q="mix"]{order:96}
+.nsq[data-q="pad"]{order:97}
+#gear{order:99;margin-right:-10px}
+/* ventaglio di Home: arco di ~110 gradi verso l'alto a sinistra, bottoni tondi da 64 px (posizioni calcolate in app.js) */
+#nav.nsq{position:relative}
+#nav.nsq:after{content:"";position:absolute;top:5px;right:5px;border:4px solid transparent;border-bottom:5px solid currentColor;border-top:0;opacity:.75}
+#fan{position:fixed;left:0;top:0;right:0;bottom:0;z-index:12;display:none;background:rgba(0,0,0,.5)}
+#fan.show{display:block}
+.fb{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:var(--amber);color:#141100;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.7)}
+#fan.show .fb{animation:fbin .14s ease-out}
+@keyframes fbin{from{transform:scale(.3);opacity:0}}
+.fb svg{width:24px;height:24px;margin-bottom:3px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.fb b{font-size:10px;font-weight:700;letter-spacing:.04em;line-height:1}
+.fb.fall{background:#141100;color:var(--amber);box-shadow:inset 0 0 0 2px var(--amber),0 2px 12px rgba(0,0,0,.7)}
+.fb.hot{transform:scale(1.15);background:#fff;color:#141100}
+.nsq.cur,#nav.nsq.cur{background:#141100;color:var(--amber);box-shadow:inset 0 0 0 2px var(--amber)}
+.nsq svg,#gear svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 #navname,#nav i{display:none}
 #gear.upd::after{top:4px;right:4px;box-shadow:0 0 0 2px var(--amber)}
 #clock{margin-right:16px}

@@ -303,7 +303,11 @@ NAV = [
     ("hd2", "Helldivers 2", "Stratagemmi ed equipaggiamento", "target"),
 ]
 
-VERSION = "1.5.0"
+# Ventaglio di Home: le sezioni principali (Audio e Touchpad hanno gia' il loro quadrato), nomi corti per i bottoni tondi
+FAN_TABS = [t for t, _n, _d, _i in NAV if t not in ("grid", "mix", "pad")]
+FAN_SHORT = {"hd2": "HD2"}
+
+VERSION = "1.6.0"
 # Valori predefiniti (quelli del PC originale); data\config.json, scritto dall'installer, li sostituisce.
 PORT = 8765
 # Reti su cui TabDeck accetta di ascoltare (prefisso dell'indirizzo del PC). 172.20.10.x = hotspot dell'iPhone.
@@ -332,6 +336,7 @@ ICONS = {
     "monitor":  "M3 4h18v12H3z M8 20h8 M12 16v4",
     "windows":  "M3 8h13v11H3z M8 8V4h13v11h-5",
     "grid":     "M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z",
+    "home":     "M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z",
     "lock":     "M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4 M12 15v2",
     "folder":   "M3 6h6l2 2h10v11H3z",
     "note":     "M6 3h12v18H6z M9 8h6 M9 12h6 M9 16h3",
@@ -473,9 +478,9 @@ for _f in FAVORITES:
 LAYOUT_FILE = os.path.join(DATA_DIR, "layout.json")
 FAV_MAX = 10
 ROW_SIDS = ("avvio", "sistema", "strumenti")
-SPECIALS = ("_vol", "_mic", "_yt")
+SPECIALS = ("_vol", "_mic", "_yt", "_mon")
 # righe di un'installazione nuova (chi ha gia' salvato le sue le tiene): le altre scorciatoie restano in "Aggiungi"
-DEFAULT_ROWS = {"sistema": ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer"],
+DEFAULT_ROWS = {"sistema": ["desktop", "alt_tab", "task_view", "lock", "_vol", "explorer", "_mon"],
                 "strumenti": ["notepad", "calc", "run", "screenshot", "snip", "_mic"]}
 ROWS = {"avvio": FAVORITES, "sistema": list(DEFAULT_ROWS["sistema"]), "strumenti": list(DEFAULT_ROWS["strumenti"])}
 # righe di chi ha un layout.json di prima che le righe si salvassero (solo "fav"): restano quelle che vedeva allora
@@ -3446,6 +3451,10 @@ def special_html(i, live=True):
         return ('<button class="b win"%s data-go="mix" data-n="Volume">%s<span class="l">Volume</span>'
                 '<span class="h mono"><span%s>--</span>%% &rsaquo;</span></button>'
                 % (' id="svol"' if live else "", svg("vol_up"), ' id="volval"' if live else ""))
+    if i == "_mon":   # porta alla sezione Monitor; la CPU arriva con /state solo se il riquadro e' in Generale
+        return ('<button class="b win"%s data-go="mon" data-n="Monitor">%s<span class="l">Monitor</span>'
+                '<span class="h mono">CPU <span%s>--</span>%% &rsaquo;</span></button>'
+                % (' id="smon"' if live else "", svg("chart"), ' id="moncpu"' if live else ""))
     if i == "_yt":
         return ('<button class="b media"%s data-go="yt" data-yt="1" data-n="YouTube"><span class="mo">YT</span>'
                 '<span class="l">YouTube</span><span class="h mono">musica e video</span></button>' % (' id="syt"' if live else ""))
@@ -3752,6 +3761,9 @@ def render_page(token, device=""):
             .replace("__NAVTILES__", "".join('<div class="tab nt%s" data-tab="%s">%s<div><b>%s</b><span>%s</span></div></div>'
                                              % (" sel" if i == 0 else "", t, svg(ic), html.escape(n), html.escape(d))
                                              for i, (t, n, d, ic) in enumerate(NAV)))
+            .replace("__FAN__", "".join('<div class="fb" data-tab="%s">%s<b>%s</b></div>' % (t, svg(ic), html.escape(FAN_SHORT.get(t, n)))
+                                        for t, n, _d, ic in NAV if t in FAN_TABS)
+                     + '<div class="fb fall">%s<b>Tutte</b></div>' % svg("grid"))
             .replace("__TABS__", json.dumps([t for t, _n, _d, _i in NAV]))
             .replace("__TABNAMES__", json.dumps({t: n for t, n, _d, _i in NAV}))
             .replace("__HOLD__", str(HOLD_MS))
@@ -3955,6 +3967,8 @@ class Handler(BaseHTTPRequestHandler):
             st["rev"] = CFG_REV
             if "g" in q:
                 st["dc"] = DISCORD.state()
+                if any("_mon" in ROWS[sid] for sid in ROW_SIDS):
+                    st["cpu"] = STATS.get(False).get("cpu")
                 try:
                     st["mic"] = mic_state()
                 except OSError:
@@ -4392,6 +4406,7 @@ def open_on_tablet(adb, url, serial):
     ok = _adb(adb, "-s", serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url,
               "-e", "com.android.browser.application_id", "tabdeck") is not None
     print("[%s] %s" % (time.strftime("%H:%M:%S"), "pagina aperta sul tablet" if ok else "apertura sul tablet NON riuscita"))
+    return ok
 
 
 # Il server ascolta su UN indirizzo (quello del PC sull'hotspot), non su 0.0.0.0: le altre schede di rete
@@ -4695,6 +4710,9 @@ def main():
     gui.run(_App(flags, tray))
 
 
+_ADB = None   # percorso di adb trovato da serve_loop (per "Apri sul tablet")
+
+
 class _App:
     """Quello che serve alla finestra (gui.py), senza che gui.py importi tabdeck."""
     def __init__(self, flags, tray_mod):
@@ -4728,10 +4746,19 @@ class _App:
         webbrowser.open(url + "&pc=1")
         return True
 
-    def make_tray(self, on_open, on_restart, on_quit):
+    def open_tablet(self):
+        """Riapre la pagina sul tablet collegato via USB (adb). -> ok | off (non in ascolto) | nousb | fail"""
+        url, adb, devs = self.pair_url(), _ADB, list(STATUS.get("adb") or [])
+        if not url:
+            return "off"
+        if not adb or not devs:
+            return "nousb"
+        return "ok" if all([open_on_tablet(adb, url, d) for d in devs]) else "fail"
+
+    def make_tray(self, on_open, on_restart, on_quit, on_tablet=None):
         global _TRAY
         try:
-            _TRAY = self._tray.Tray(self.icon_path, "TabDeck %s" % VERSION, on_open, on_restart, on_quit)
+            _TRAY = self._tray.Tray(self.icon_path, "TabDeck %s" % VERSION, on_open, on_restart, on_quit, on_tablet)
             _TRAY.start()
         except Exception as e:
             print("icona di notifica non disponibile: %s" % e)
@@ -4750,7 +4777,8 @@ def serve_loop(flags):
     fixed = flags["host"]
     srv = th = None
     host = url = None
-    adb = find_adb() if flags["open"] else None
+    global _ADB
+    adb = _ADB = find_adb() if flags["open"] else None
     if flags["open"] and not adb:
         print("adb non trovato: la pagina andra' aperta a mano sul tablet")
     seen, opened, warned = set(), {}, None     # tablet collegati via adb; seriale -> ultimo indirizzo aperto
