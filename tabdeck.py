@@ -4406,6 +4406,7 @@ def open_on_tablet(adb, url, serial):
     ok = _adb(adb, "-s", serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url,
               "-e", "com.android.browser.application_id", "tabdeck") is not None
     print("[%s] %s" % (time.strftime("%H:%M:%S"), "pagina aperta sul tablet" if ok else "apertura sul tablet NON riuscita"))
+    return ok
 
 
 # Il server ascolta su UN indirizzo (quello del PC sull'hotspot), non su 0.0.0.0: le altre schede di rete
@@ -4709,6 +4710,9 @@ def main():
     gui.run(_App(flags, tray))
 
 
+_ADB = None   # percorso di adb trovato da serve_loop (per "Apri sul tablet")
+
+
 class _App:
     """Quello che serve alla finestra (gui.py), senza che gui.py importi tabdeck."""
     def __init__(self, flags, tray_mod):
@@ -4742,10 +4746,19 @@ class _App:
         webbrowser.open(url + "&pc=1")
         return True
 
-    def make_tray(self, on_open, on_restart, on_quit):
+    def open_tablet(self):
+        """Riapre la pagina sul tablet collegato via USB (adb). -> ok | off (non in ascolto) | nousb | fail"""
+        url, adb, devs = self.pair_url(), _ADB, list(STATUS.get("adb") or [])
+        if not url:
+            return "off"
+        if not adb or not devs:
+            return "nousb"
+        return "ok" if all([open_on_tablet(adb, url, d) for d in devs]) else "fail"
+
+    def make_tray(self, on_open, on_restart, on_quit, on_tablet=None):
         global _TRAY
         try:
-            _TRAY = self._tray.Tray(self.icon_path, "TabDeck %s" % VERSION, on_open, on_restart, on_quit)
+            _TRAY = self._tray.Tray(self.icon_path, "TabDeck %s" % VERSION, on_open, on_restart, on_quit, on_tablet)
             _TRAY.start()
         except Exception as e:
             print("icona di notifica non disponibile: %s" % e)
@@ -4764,7 +4777,8 @@ def serve_loop(flags):
     fixed = flags["host"]
     srv = th = None
     host = url = None
-    adb = find_adb() if flags["open"] else None
+    global _ADB
+    adb = _ADB = find_adb() if flags["open"] else None
     if flags["open"] and not adb:
         print("adb non trovato: la pagina andra' aperta a mano sul tablet")
     seen, opened, warned = set(), {}, None     # tablet collegati via adb; seriale -> ultimo indirizzo aperto

@@ -50,10 +50,11 @@ e della tastiera e il tipo di tastiera (completa, quella attuale col campo di te
 **Annullare una modifica**: nella finestra sul PC, **Annulla ultima modifica** riporta pulsanti, scorciatoie e
 impostazioni a com'erano prima dell'ultimo cambio (un passo alla volta; si tengono gli ultimi 30). Funziona anche
 se la pagina sul telefono non si apre. **Apri TabDeck sul PC** apre la pagina completa nel browser del PC, da usare
-col mouse.
+col mouse. **Apri sul tablet** riapre TabDeck sul tablet collegato con il cavo USB (se l'hai chiuso per sbaglio).
+Sul tablet o sul telefono puoi anche aggiungere un'icona: Chrome, menu > **Aggiungi a schermata Home**.
 
 Chiudendo la finestra TabDeck resta attivo: la sua icona è vicino all'orologio (clic = riapri, clic destro =
-Riavvia / Esci). All'accensione del PC parte già nascosto, solo con l'icona.
+Apri sul tablet / Riavvia / Esci). All'accensione del PC parte già nascosto, solo con l'icona.
 
 **Approvazione dei dispositivi**: con l'opzione "Richiedi approvazione per i nuovi dispositivi" (accesa sulle
 installazioni nuove) un telefono nuovo mostra un codice di 4 cifre e la finestra sul PC lo stesso codice:

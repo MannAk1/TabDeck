@@ -4,6 +4,7 @@ Non importa tabdeck.py: riceve un oggetto `app` con quello che serve (vedi run()
 gli altri thread (icona, server) non toccano mai Tk: mettono funzioni in una coda che la finestra svuota.
 """
 import queue
+import threading
 import time
 import tkinter as tk
 from tkinter import messagebox, simpledialog
@@ -13,6 +14,10 @@ BG, PANEL, PANEL2, LINE = "#0a0b08", "#14160f", "#1b1e15", "#2c3022"
 AMBER, TEXT, DIM, OK, ERR, WARN = "#f5c518", "#ebe7d6", "#8d8a72", "#5cc45a", "#e8463a", "#ffd166"
 FONT, MONO = "Segoe UI", "Consolas"
 ACTIVE_S = 10          # verde se visto negli ultimi 10 s
+TABLET_MSG = {"off": "TabDeck non e' in ascolto: accendi l'hotspot e riprova.",
+              "nousb": "Nessun tablet collegato con il cavo USB.\n\nSul tablet si puo' anche usare l'icona TabDeck "
+                       "nella schermata Home (Chrome: menu > Aggiungi a schermata Home).",
+              "fail": "Il tablet non ha risposto: ricollega il cavo e riprova."}
 AUTOSHOW_S = 60        # la finestra si apre da sola per una richiesta al massimo una volta al minuto
 
 
@@ -65,7 +70,7 @@ class Window:
         if app.start_hidden:
             r.withdraw()
         self.tray = app.make_tray(lambda: self.q.put(self.show), lambda: self.q.put(self.restart),
-                                  lambda: self.q.put(self.quit))
+                                  lambda: self.q.put(self.quit), lambda: self.q.put(self.open_tablet))
         r.after(200, self._tick_fast)
         r.after(300, self._tick)
 
@@ -105,6 +110,7 @@ class Window:
         self._btn(row, "Nuovo link", self.new_link).pack(side="left", padx=(6, 0))
         self.openpc = self._btn(left, "Apri TabDeck sul PC", self.open_page, fg=AMBER, big=True)
         self.openpc.pack(fill="x", pady=(8, 0))
+        self._btn(left, "Apri sul tablet", self.open_tablet, big=True).pack(fill="x", pady=(6, 0))
 
         right = tk.Frame(body, bg=PANEL, padx=14, pady=12)
         right.pack(side="left", fill="both", expand=True, padx=(12, 0))
@@ -297,6 +303,14 @@ class Window:
     def open_page(self):
         if not self.app.open_page():
             messagebox.showinfo("TabDeck", "TabDeck non e' in ascolto: accendi l'hotspot e riprova.", parent=self.root)
+
+    def open_tablet(self):
+        def run():      # adb puo' metterci qualche secondo: la finestra non si blocca
+            r = self.app.open_tablet()
+            msg = TABLET_MSG.get(r)
+            if msg:
+                self.q.put(lambda: messagebox.showinfo("TabDeck", msg, parent=self.root))
+        threading.Thread(target=run, name="apri-tablet", daemon=True).start()
 
     def toggle_require(self):
         self.app.devices.set_require(self.req.get())

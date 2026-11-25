@@ -50,7 +50,8 @@ Riavvia / aggiornamento). `tabdeck.bat` resta per lavorarci con la console.
    thread non toccano Tk (coda svuotata con `after`). X = nascondi nell'area di notifica; Esci (`quit_tabdeck`)
    ferma server e icona, salva i dispositivi e termina (dopo 3 s comunque).
    La finestra ha anche **Annulla ultima modifica** (`undo_last`, vedi sotto) e **Apri TabDeck sul PC**
-   (apre `pair_url() + "&pc=1"` nel browser).
+   (apre `pair_url() + "&pc=1"` nel browser) e **Apri sul tablet** (anche nel menu dell'icona: `_App.open_tablet`,
+   riapre `pair_url()` via adb su ogni tablet in `STATUS["adb"]`, in un thread; messaggi `gui.TABLET_MSG`).
 
 ### Storico delle modifiche (`storico.py`, `data/storico/`)
 - Prima di ogni modifica fatta da una richiesta (`POST /layout` righe e scorciatoie, `POST /settings`) si legge
